@@ -1058,3 +1058,15 @@ body {
         margin-top: auto; /* Прижимает футер к низу */
     }
 }
+
+.dict-dropdown-menu,
+.dict-dropdown-menu-down {
+  display: none;
+  position: fixed !important; /* Ключевое: отвязываем от родителя */
+  z-index: 999999 !important; /* Поверх всего */
+  min-width: 260px;
+  background-color: var(--light);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+  /* Убираем статические отступы, так как их теперь ставит JS */
+  margin: 0 !important; 
+}

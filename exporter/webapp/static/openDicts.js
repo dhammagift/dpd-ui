@@ -117,13 +117,14 @@ function toggleDictDropdown(event) {
   event.preventDefault();
   event.stopPropagation();
 
-  const container = event.currentTarget.closest('.dict-dropdown-container');
+  const button = event.currentTarget;
+  const container = button.closest('.dict-dropdown-container');
   if (!container) return;
 
   const dropdown = container.querySelector('.dict-dropdown-menu, .dict-dropdown-menu-down');
   if (!dropdown) return;
 
-  // 👉 Ленивое создание
+  // Ленивое создание содержимого
   if (!dropdown.dataset.ready) {
     createDropdowns();
     dropdown.dataset.ready = "1";
@@ -134,18 +135,45 @@ function toggleDictDropdown(event) {
     if (el !== dropdown) el.classList.remove('show');
   });
 
-  dropdown.classList.toggle('show');
+  const isShowing = dropdown.classList.toggle('show');
 
-  if (dropdown.classList.contains('show')) {
+  if (isShowing) {
+    // 1. Динамическое позиционирование относительно координат кнопки
+    const rect = button.getBoundingClientRect();
+    const isDown = dropdown.classList.contains('dict-dropdown-menu-down');
+
+    // Привязываем левый край к кнопке
+    dropdown.style.left = `${rect.left}px`;
+
+    if (isDown) {
+      // Меню выпадает ВНИЗ (из хедера)
+      dropdown.style.top = `${rect.bottom + 5}px`;
+      dropdown.style.bottom = 'auto';
+    } else {
+      // Меню выпадает ВВЕРХ (из футера)
+      dropdown.style.bottom = `${window.innerHeight - rect.top + 5}px`;
+      dropdown.style.top = 'auto';
+    }
+
+    // 2. Проверка, чтобы меню не уходило за правый край экрана
+    const dropdownWidth = 260; // min-width из CSS
+    if (rect.left + dropdownWidth > window.innerWidth) {
+      dropdown.style.left = 'auto';
+      dropdown.style.right = '10px';
+    } else {
+      dropdown.style.right = 'auto';
+    }
+
     adjustDropdownHeight(container, dropdown);
   }
 
+  // Обработчики закрытия
   if (container._closeHandler) {
     document.removeEventListener('click', container._closeHandler);
   }
 
   container._closeHandler = function(e) {
-    if (!container.contains(e.target)) {
+    if (!container.contains(e.target) && !dropdown.contains(e.target)) {
       dropdown.classList.remove('show');
       document.removeEventListener('click', container._closeHandler);
       window.removeEventListener('resize', container._resizeHandler);
@@ -158,11 +186,31 @@ function toggleDictDropdown(event) {
 
   container._resizeHandler = function() {
     if (dropdown.classList.contains('show')) {
-      adjustDropdownHeight(container, dropdown);
+      toggleDictDropdown(event); // Пересчитать позицию при ресайзе
     }
   };
   window.addEventListener('resize', container._resizeHandler);
 }
+
+function adjustDropdownHeight(container, dropdown) {
+  const rect = dropdown.getBoundingClientRect();
+  const margin = 20;
+  let availableSpace;
+
+  if (dropdown.classList.contains('dict-dropdown-menu-down')) {
+    // Пространство от верха меню до низа экрана
+    availableSpace = window.innerHeight - rect.top - margin;
+  } else {
+    // Пространство от низа меню до верха экрана
+    availableSpace = rect.bottom - margin;
+  }
+
+  const maxVhHeight = window.innerHeight * 0.8;
+  const finalHeight = Math.max(150, Math.min(availableSpace, maxVhHeight));
+
+  dropdown.style.maxHeight = `${finalHeight}px`;
+}
+
 
 
 function adjustDropdownHeight(container, dropdown) {
