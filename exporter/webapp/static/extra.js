@@ -461,7 +461,7 @@ document.addEventListener('click', (e) => {
     updateLink(
       dg,
       window.location.pathname.startsWith('/ru')
-        ? 'https://dhamma.gift/ru/?p=-kn'
+        ? 'https://f.dhamma.gift/ru/?p=-kn'
         : 'https://dhamma.gift?p=-kn'
     );
     return;
