@@ -436,7 +436,7 @@ function updateLink(el, baseUrl) {
   }
 
   // если вообще нечего подставлять — выходим
-  if (!query) return;
+ // if (!query) return;
 
   const url = new URL(baseUrl);
   url.searchParams.set('q', query);
