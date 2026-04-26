@@ -31,7 +31,7 @@ function createDropdowns() {
     <a class="dropdown-item" target="" rel="noopener noreferrer" title="${texts.dGiftTitle}" href="javascript:void(0)" onclick="return openWithQuery(event, '${texts.dGift}')">
       <span class="dropdown-icon">🔎</span> ${texts.dGiftHeader}
     </a>
-    <a class="dropdown-item" target="" rel="noopener noreferrer" title="DharmaMitra.org Translate and Research" href="javascript:void(0)" onclick="return openWithQuery(event, 'https://dharmamitra.org/?target_lang=english-explained&input_sentence=')">
+    <a class="dropdown-item" target="" rel="noopener noreferrer" title="DharmaMitra.org Translate and Research" href="javascript:void(0)" onclick="return openWithQuery(event, 'https://dharmamitra.org/translate?input_sentence=')">
         <span class="dropdown-icon">🐻‍❄️</span> DharamMitra.org
     </a>
       <div class="dropdown-header">${texts.groups}</div>
