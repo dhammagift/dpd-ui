@@ -116,12 +116,20 @@ BD_COUNT = "360k+"
 
 
 # --- Helpers ---
-
-async def fetch_from_backend(lang: str, params: dict):
+async def fetch_from_backend(lang: str, params: dict, try_fallback: bool = True):
     """
     Делает запрос к бэкенду dpdict.net.
     Принимает уже очищенные параметры (целую фразу).
+    Если есть кириллица — сразу ищет в русском.
+    Если ничего не найдено на текущем языке — делает один резервный запрос на другой.
     """
+    q = params.get("q", "")
+    
+    # Если в запросе есть кириллица, принудительно устанавливаем русский язык
+    if try_fallback and re.search(r'[а-яА-ЯёЁ]', q):
+        lang = "ru"
+        try_fallback = False  # Фоллбэк на английский для кириллицы не имеет смысла
+        
     config = ENDPOINTS.get(lang)
     if not config:
         raise HTTPException(status_code=400, detail="Invalid language")
@@ -132,7 +140,23 @@ async def fetch_from_backend(lang: str, params: dict):
         async with httpx.AsyncClient(timeout=TIMEOUT) as client:
             response = await client.get(url, params=params)
             response.raise_for_status()
-            return response.json()
+            data = response.json()
+
+            # Фоллбэк: если это первая попытка, результатов нет и текст латиницей
+            if try_fallback and not data.get("dpd_html"):
+                fallback_lang = "ru" if lang == "en" else "en"
+                fallback_data = await fetch_from_backend(
+                    fallback_lang, 
+                    params, 
+                    try_fallback=False
+                )
+                
+                # Если во втором запросе есть результат, отдаем его
+                if fallback_data.get("dpd_html"):
+                    return fallback_data
+
+            return data
+
     except httpx.ConnectTimeout:
         raise HTTPException(
             status_code=504,
