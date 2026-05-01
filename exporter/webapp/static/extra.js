@@ -370,7 +370,6 @@ function initStartMessage(lang) {
 
   // Модифицированная функция changeLanguage   url.protocol = 'https:'; 
 function changeLanguage(lang) {
-
   if (typeof showSpinner === 'function') {
       showSpinner();
   }
@@ -390,8 +389,6 @@ function changeLanguage(lang) {
 
   const url = new URL(window.location.href);
   let path = url.pathname; 
-  const searchParams = url.search; 
-  const hash = url.hash; 
   let siteLanguage = '';
   
   path = path.replace(/^\/ru/, '');
@@ -407,12 +404,19 @@ function changeLanguage(lang) {
 
   localStorage.setItem('siteLanguage', siteLanguage);
 
-  // ОТПРАВЛЯЕМ СИГНАЛ РОДИТЕЛЮ И РАСШИРЕНИЮ
-  if (window.parent !== window) {
-      window.parent.postMessage({ 
-          action: 'dg_language_changed', 
-          lang: siteLanguage 
-      }, '*');
+  const payload = { 
+      action: 'dg_language_changed', 
+      lang: siteLanguage 
+  };
+
+  window.postMessage(payload, '*');
+
+  if (window.parent && window.parent !== window) {
+      window.parent.postMessage(payload, '*');
+  }
+
+  if (window.opener && window.opener !== window) {
+      window.opener.postMessage(payload, '*');
   }
 
   window.location.href = url.toString();
