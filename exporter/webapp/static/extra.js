@@ -371,21 +371,15 @@ function initStartMessage(lang) {
   // Модифицированная функция changeLanguage   url.protocol = 'https:'; 
 function changeLanguage(lang) {
 
-if (typeof showSpinner === 'function') {
+  if (typeof showSpinner === 'function') {
       showSpinner();
   }
 
-// ДОПОЛНЕНИЕ: Принудительно показываем спиннер, если мы в режиме попапа (search_html),
-  // так как showSpinner() игнорирует этот путь.
   const currentPath = window.location.pathname;
   if (currentPath.includes('search_html')) {
-      // Пытаемся найти контейнер (обычно это dpdResults, как и в showSpinner)
-      // Используем getElementById для надежности
       const container = document.getElementById('dpdResults');
       
       if (container) {
-          // Вставляем HTML спиннера вручную, если его там еще нет
-          // Используем те же классы, что и в showSpinner
           container.insertAdjacentHTML('beforeend', `
             <div class="spinner-container transparent-spinner">
                 <img src="/static/circle-notch.svg" class="loading-spinner">
@@ -394,32 +388,35 @@ if (typeof showSpinner === 'function') {
       }
   }
 
-  // Получаем текущий URL и разбиваем его на части
   const url = new URL(window.location.href);
-  let path = url.pathname; // Путь (например, "/ru")
-  const searchParams = url.search; // Параметры запроса (например, "?q=dukkha")
-  const hash = url.hash; // Хэш (например, "#section")
-let siteLanguage = '';
-  // Удаляем все существующие вхождения '/ru' из пути
+  let path = url.pathname; 
+  const searchParams = url.search; 
+  const hash = url.hash; 
+  let siteLanguage = '';
+  
   path = path.replace(/^\/ru/, '');
 
-  // Если выбран язык 'ru', добавляем '/ru' в начало пути
   if (lang === 'ru') {
     path = '/ru' + path;
     siteLanguage = 'ru'; 
   } else {
-siteLanguage = 'en';
+    siteLanguage = 'en';
   }
 
-  // Обновляем путь в URL
   url.pathname = path;
 
-    localStorage.setItem('siteLanguage', siteLanguage);
+  localStorage.setItem('siteLanguage', siteLanguage);
 
-  // Принудительно обновляем страницу с новым URL
+  // ОТПРАВЛЯЕМ СИГНАЛ РОДИТЕЛЮ И РАСШИРЕНИЮ
+  if (window.parent !== window) {
+      window.parent.postMessage({ 
+          action: 'dg_language_changed', 
+          lang: siteLanguage 
+      }, '*');
+  }
+
   window.location.href = url.toString();
 }
-
 
 //ссылки в футере
 const searchBoxForFooter = document.getElementById('search-box');
