@@ -776,3 +776,29 @@ document.addEventListener('click', function(event) {
 
     window.location.href = finalUrl;
 });
+
+
+
+// Используем анонимную функцию для изоляции области видимости
+(function() {
+    // Проверяем наличие необходимых элементов, чтобы не вызвать ошибку
+    const hp = document.getElementById('history-pane') || (typeof historyPane !== 'undefined' ? historyPane : null);
+    const sb = document.getElementById('search-box') || (typeof searchBox !== 'undefined' ? searchBox : null);
+
+    if (hp && sb) {
+        hp.addEventListener("click", function(event) {
+            let target = event.target;
+            // Проверяем, что кликнули именно по элементу списка (слову в истории)
+            if (target.tagName.toLowerCase() === 'li') {
+                const text = target.textContent.trim();
+                if (text !== "") {
+                    sb.value = text;
+                    // handleFormSubmit должна быть глобально доступна из предыдущих файлов
+                    if (typeof handleFormSubmit === 'function') {
+                        handleFormSubmit(); 
+                    }
+                }
+            }
+        });
+    }
+})();
