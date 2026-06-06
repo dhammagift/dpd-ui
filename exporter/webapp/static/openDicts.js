@@ -79,7 +79,7 @@ function createDropdowns() {
     <div class="dropdown-section">
       <div class="dropdown-header">${texts.sanskrit}</div>
       <a class="dropdown-item" target="_blank" href="javascript:void(0)" onclick="return openWithQuery(event, 'https://sanskrit-lexicon.uni-koeln.de/scans/MWScan/2020/web/webtc/indexcaller.php?transLit=roman&key=')">
-        <span class="dropdown-icon">📜</span> Monier-Williams & more
+        <span class="dropdown-icon">📜</span> Monier-Williams & other
       </a>
           <a class="dropdown-item" target="_blank" href="javascript:void(0)" onclick="return openWithQuery(event, 'https://glosbe.com/pi/sa/')">
         <span class="dropdown-icon">📜</span> Glosbe Pli-Skr
