@@ -1,15 +1,3 @@
-
-div.button-box {
-    margin: 2px 0px 3px 0px;
-    display: flex;
-    justify-content: flex-start;
-    align-items: flex-start; /* Ключевое свойство: запрещает растягивание по высоте */
-    align-content: flex-start;
-    flex-wrap: wrap;
-    gap: 4px; /* Делает аккуратные и равномерные отступы между кнопками */
-}
-
-
 .settings-pane {
 overflow: auto;
 }
