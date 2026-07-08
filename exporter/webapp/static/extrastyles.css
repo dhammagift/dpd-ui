@@ -1,3 +1,24 @@
+.dpd-server-wrapper {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    clear: both !important;
+    overflow-x: auto;
+}
+
+.dpd-server-wrapper * {
+    box-sizing: border-box;
+}
+
+.dpd-server-wrapper table {
+    max-width: 100%;
+    overflow-x: auto;
+    display: block;
+}
+
+
+
+
 .settings-pane {
 overflow: auto;
 }

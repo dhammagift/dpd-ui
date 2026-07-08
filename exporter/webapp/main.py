@@ -125,10 +125,9 @@ async def fetch_from_backend(lang: str, params: dict, try_fallback: bool = True)
     """
     q = params.get("q", "")
     
-    # Если в запросе есть кириллица, принудительно устанавливаем русский язык
     if try_fallback and re.search(r'[а-яА-ЯёЁ]', q):
         lang = "ru"
-        try_fallback = False  # Фоллбэк на английский для кириллицы не имеет смысла
+        try_fallback = False 
         
     config = ENDPOINTS.get(lang)
     if not config:
@@ -142,7 +141,6 @@ async def fetch_from_backend(lang: str, params: dict, try_fallback: bool = True)
             response.raise_for_status()
             data = response.json()
 
-            # Фоллбэк: если это первая попытка, результатов нет и текст латиницей
             if try_fallback and not data.get("dpd_html"):
                 fallback_lang = "ru" if lang == "en" else "en"
                 fallback_data = await fetch_from_backend(
@@ -151,9 +149,12 @@ async def fetch_from_backend(lang: str, params: dict, try_fallback: bool = True)
                     try_fallback=False
                 )
                 
-                # Если во втором запросе есть результат, отдаем его
                 if fallback_data.get("dpd_html"):
+                    fallback_data["dpd_html"] = f'<div class="dpd-server-wrapper">{fallback_data["dpd_html"]}</div>'
                     return fallback_data
+
+            if data.get("dpd_html"):
+                data["dpd_html"] = f'<div class="dpd-server-wrapper">{data["dpd_html"]}</div>'
 
             return data
 
