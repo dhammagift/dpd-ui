@@ -803,3 +803,36 @@ document.addEventListener('click', function(event) {
         });
     }
 })();
+
+// Функция для обновления заголовка вкладки
+function updateDocumentTitle(query) {
+  const baseTitle = "DG Digital Pali Dictionary";
+  
+  if (query && query.trim() !== "") {
+    document.title = query.trim() + " — DG DPD";
+  } else {
+    document.title = baseTitle;
+  }
+}
+
+// Отдельный слушатель для инициализации заголовка страницы
+document.addEventListener('DOMContentLoaded', function() {
+  // 1. Проверяем URL на наличие параметра q при загрузке
+  const urlParams = new URLSearchParams(window.location.search);
+  const initialQuery = urlParams.get('q');
+  
+  if (initialQuery) {
+    updateDocumentTitle(initialQuery);
+  }
+
+  // 2. Вешаем обработчик на инпут для изменения на лету
+  const searchBoxInput = document.getElementById('search-box');
+  if (searchBoxInput) {
+    searchBoxInput.addEventListener('input', function(event) {
+      updateDocumentTitle(event.target.value);
+    });
+  }
+});
+
+
+
