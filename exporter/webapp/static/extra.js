@@ -1144,10 +1144,10 @@ async function fetchSanskrit(query, isFallback = false) {
     }
 
     try {
-        const targetUrl = `https://www.sanskrit-lexicon.uni-koeln.de/scans/awork/apidev/api1/salt_multidict.php?key=${encodeURIComponent(query)}&input=roman&output=roman`;
-        const url = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
+        const url = `https://www.sanskrit-lexicon.uni-koeln.de/scans/awork/apidev/api1/salt_multidict.php?key=${encodeURIComponent(query)}&input=roman&output=roman`;
         
         const response = await fetch(url);
+
         
         if (!response.ok) {
             const msgError = isRu ? 'Произошла ошибка при обращении к словарю.' : 'An error occurred while accessing the dictionary.';
