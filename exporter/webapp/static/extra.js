@@ -1148,6 +1148,8 @@ function showEmptyMessage(container, isRu, query, headerHtml) {
     container.innerHTML = headerHtml + `<div style="opacity: 0.7;">${msgEmpty}</div>`;
 }
 
+const sanskritApiCache = new Map();
+
 async function fetchSanskrit(query, isFallback = false) {
     const container = document.getElementById('sanskrit-results');
     const toggle = document.getElementById('sanskrit-toggle');
@@ -1178,21 +1180,30 @@ async function fetchSanskrit(query, isFallback = false) {
     }
 
     try {
-        const url = `https://www.sanskrit-lexicon.uni-koeln.de/scans/awork/apidev/api1/salt_multidict.php?key=${encodeURIComponent(query)}&input=roman&output=roman`;
-        
-        const response = await fetch(url);
+        const cacheKey = query.trim().toLowerCase();
+        let data;
 
-        
-        if (!response.ok) {
-            const msgError = isRu ? 'Произошла ошибка при обращении к словарю.' : 'An error occurred while accessing the dictionary.';
-            container.innerHTML = headerHtml + `
-            <div style="color: #c08552; padding: 10px; background: rgba(192, 133, 82, 0.1); border-radius: 5px;">
-                ⚠️ ${msgError} <span style="color: #999; font-size: 0.9em;">(HTTP ${response.status})</span>
-            </div>`;
-            return;
+        // Проверяем наличие ответа в кэше
+        if (sanskritApiCache.has(cacheKey)) {
+            data = sanskritApiCache.get(cacheKey);
+        } else {
+            const url = `https://www.sanskrit-lexicon.uni-koeln.de/scans/awork/apidev/api1/salt_multidict.php?key=${encodeURIComponent(query)}&input=roman&output=roman`;
+            const response = await fetch(url);
+            
+            if (!response.ok) {
+                const msgError = isRu ? 'Произошла ошибка при обращении к словарю.' : 'An error occurred while accessing the dictionary.';
+                container.innerHTML = headerHtml + `
+                <div style="color: #c08552; padding: 10px; background: rgba(192, 133, 82, 0.1); border-radius: 5px;">
+                    ⚠️ ${msgError} <span style="color: #999; font-size: 0.9em;">(HTTP ${response.status})</span>
+                </div>`;
+                return;
+            }
+
+            data = await response.json();
+            // Сохраняем успешный ответ в кэш
+            sanskritApiCache.set(cacheKey, data);
         }
 
-        const data = await response.json();
         let htmlContent = headerHtml;
         let hasResults = false;
         
@@ -1209,21 +1220,17 @@ async function fetchSanskrit(query, isFallback = false) {
                 nameCounts[name] = (nameCounts[name] || 0) + 1;
             });
 
-            // Задаем приоритет по префиксам (чтобы захватить mw и mw72, ap и ap90 и т.д.)
             const prefixes = ['mw', 'shs', 'ap', 'md'];
             let defaultOrder = [];
             
             prefixes.forEach(prefix => {
-                // Находим все доступные словари, начинающиеся с префикса, сортируем и добавляем
                 const matches = availableCodes.filter(code => code.startsWith(prefix)).sort();
                 defaultOrder.push(...matches);
             });
 
-            // Остальные словари по алфавиту
             const remainingCodes = availableCodes.filter(code => !defaultOrder.includes(code)).sort();
             const baseOrder = [...defaultOrder, ...remainingCodes];
 
-            // Накладываем пользовательскую сортировку (если есть) на базовый порядок
             let finalOrder = savedOrder.filter(code => availableCodes.includes(code));
             baseOrder.forEach(code => {
                 if (!finalOrder.includes(code) && availableCodes.includes(code)) {
@@ -1249,7 +1256,6 @@ async function fetchSanskrit(query, isFallback = false) {
                 const icon = isCollapsed ? '▶' : '▼';
                 const displayStyle = isCollapsed ? 'none' : 'block';
 
-                // Здесь убран draggable="true" и добавлен touch-action: none для ползунка
                 htmlContent += `
                     <div class="sanskrit-dict-wrapper" data-dictcode="${dictCode}" style="margin-bottom: 5px;">
                         <div class="sanskrit-dict-header" data-dictcode="${dictCode}" style="display: flex; justify-content: space-between; font-weight: bold; margin-top: 10px; margin-bottom: 5px; color: #1a8bdb; cursor: pointer; user-select: none;">
@@ -1443,5 +1449,90 @@ document.addEventListener('DOMContentLoaded', () => {
     if (initialQuery) {
         if (searchBox) searchBox.value = initialQuery;
         handleClientSearch(initialQuery);
+    }
+});
+
+// ===== ПЕРЕХВАТ И ИСПРАВЛЕНИЕ ДВОЙНОГО КЛИКА ИЗ HOME.JS =====
+document.addEventListener('DOMContentLoaded', () => {
+    const dpdPane = document.getElementById("dpd-pane");
+    const historyPane = document.getElementById("history-pane");
+
+    // 1. Отписываемся от старых функций, если они существуют в глобальной области
+    if (typeof processSelection === 'function') {
+        if (dpdPane) dpdPane.removeEventListener("dblclick", processSelection);
+        if (historyPane) historyPane.removeEventListener("dblclick", processSelection);
+    }
+    
+    if (typeof handleTouchEnd === 'function') {
+        if (dpdPane) dpdPane.removeEventListener("touchend", handleTouchEnd);
+        if (historyPane) historyPane.removeEventListener("touchend", handleTouchEnd);
+    }
+
+    // 2. Новая функция для обработки выделения (с поддержкой санскрита)
+    function executeSelectionSearch() {
+        let selection = window.getSelection().toString().trim();
+        
+        // Очищаем от знаков препинания по краям, оставляя юникод-буквы, диакритику и корень
+        selection = selection.replace(/^[^\p{L}\p{M}√]+|[^\p{L}\p{M}√]+$/gu, "");
+        
+        if (selection !== "") {
+            const searchBox = document.getElementById('search-box');
+            if (searchBox) searchBox.value = selection;
+            
+            // Вызываем нашу новую клиентскую логику
+            if (typeof handleClientSearch === 'function') {
+                handleClientSearch(selection);
+                
+                // Явно дёргаем поиск санскрита
+                if (typeof runSanskritSearch === 'function') {
+                    setTimeout(runSanskritSearch, 200);
+                }
+            }
+        }
+    }
+
+    // 3. Новый обработчик для двойного тапа на мобильных
+    let tapTime = 0;
+    function newHandleTouchEnd(event) {
+        const currentTime = new Date().getTime();
+        const tapLength = currentTime - tapTime;
+
+        if (tapLength < 300 && tapLength > 0) {
+            event.preventDefault();
+            executeSelectionSearch();
+        }
+        tapTime = currentTime;
+    }
+
+    // 4. Навешиваем новые правильные слушатели
+    if (dpdPane) {
+        dpdPane.addEventListener("dblclick", executeSelectionSearch);
+        dpdPane.addEventListener("touchend", newHandleTouchEnd);
+    }
+    if (historyPane) {
+        historyPane.addEventListener("dblclick", executeSelectionSearch);
+        historyPane.addEventListener("touchend", newHandleTouchEnd);
+    }
+
+    // 5. Глушим старую логику отправки формы из home.js, чтобы избежать конфликтов и спиннера
+    if (typeof handleFormSubmit === 'function') {
+        const formObj = document.getElementById("search-form");
+        const btnObj = document.getElementById("search-button");
+        
+        if (formObj) formObj.removeEventListener("submit", handleFormSubmit);
+        if (btnObj) btnObj.removeEventListener("submit", handleFormSubmit);
+        if (btnObj) btnObj.removeEventListener("click", handleFormSubmit);
+        
+        // Подменяем глобальную функцию для других скриптов, которые её вызывают
+        window.handleFormSubmit = function(event) {
+            if (event) event.preventDefault();
+            const searchBox = document.getElementById('search-box');
+            if (searchBox && searchBox.value) {
+                handleClientSearch(searchBox.value);
+                if (typeof runSanskritSearch === 'function') {
+                    setTimeout(runSanskritSearch, 200);
+                }
+            }
+        };
     }
 });
