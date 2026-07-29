@@ -1,3 +1,7 @@
+
+
+window.isRu = window.location.pathname.startsWith('/ru');
+
 // theme from GET ?theme=dark|light
 (function () {
   const params = new URLSearchParams(window.location.search);
@@ -662,11 +666,11 @@ if (installLink) {
 }
 
 
+
 // tab replacement woth links 
   // 1. Define Helper function to determine Base URL
   function getBaseUrl() {
-    const isRu = window.location.pathname.startsWith('/ru');
-    return isRu ? 'https://ru.dpdict.net' : 'https://dpdict.net';
+    return window.isRu ? 'https://ru.dpdict.net' : 'https://dpdict.net';
   }
 
   // 2. Define the function that updates the links
@@ -766,8 +770,7 @@ document.addEventListener('click', function(event) {
     }
 
     // Формирование URL с учетом языка
-    const isRu = window.location.pathname.includes('/ru/');
-    const baseUrl = isRu ? 'https://dhamma.gift/ru/' : 'https://dhamma.gift/';
+    const baseUrl = window.isRu ? 'https://dhamma.gift/ru/' : 'https://dhamma.gift/';
     
     // Если sParam пустой (не из примера), он не добавится в URL
     let finalUrl = `${baseUrl}?q=${suttaCode}`;
@@ -834,45 +837,284 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 });
 
-// extra.js — Мультиязычная версия (RU / EN)
+// extra.js — Чистый скрипт для вашей HTML разметки (Блок Санскрита)
+
+let lastSanskritQuery = '';
+let waitingForFallback = null; 
+let draggedDict = null; 
+
 document.addEventListener("DOMContentLoaded", () => {
     const searchForm = document.getElementById('search-form');
     const searchInput = document.getElementById('search-box');
     const sanskritToggle = document.getElementById('sanskrit-toggle');
 
-    // 1. Запуск при загрузке страницы, если поле не пустое
+    if (sanskritToggle) {
+        const savedState = localStorage.getItem('sanskritToggleState');
+        if (savedState !== null) {
+            sanskritToggle.checked = savedState === 'true';
+        }
+        
+        sanskritToggle.addEventListener('change', () => {
+            localStorage.setItem('sanskritToggleState', sanskritToggle.checked);
+            const container = document.getElementById('sanskrit-results');
+            
+            if (sanskritToggle.checked) {
+                if (container) container.style.display = 'block';
+                lastSanskritQuery = ''; 
+                runSanskritSearch();
+            } else {
+                if (container) container.style.display = 'none';
+            }
+        });
+    }
+
     if (searchInput && searchInput.value.trim()) {
         runSanskritSearch();
     }
 
-    // 2. Слушатель отправки формы
     if (searchForm) {
-        searchForm.addEventListener('submit', () => {
+        searchForm.addEventListener('submit', (e) => {
             setTimeout(runSanskritSearch, 200);
         });
     }
 
-    // 3. Реакция на переключатель в настройках
-    if (sanskritToggle) {
-        sanskritToggle.addEventListener('change', () => {
-            const container = document.getElementById('sanskrit-results');
-            if (container) {
-                container.style.display = sanskritToggle.checked ? 'block' : 'none';
+    document.addEventListener('click', (e) => {
+        const moveBtn = e.target.closest('.dict-move-up, .dict-move-down');
+        if (moveBtn) {
+            e.stopPropagation(); 
+            const wrapper = e.target.closest('.sanskrit-dict-wrapper');
+            const parent = wrapper.parentNode;
+            const isUp = moveBtn.classList.contains('dict-move-up');
+
+            if (isUp && wrapper.previousElementSibling && wrapper.previousElementSibling.classList.contains('sanskrit-dict-wrapper')) {
+                parent.insertBefore(wrapper, wrapper.previousElementSibling);
+            } else if (!isUp && wrapper.nextElementSibling && wrapper.nextElementSibling.classList.contains('sanskrit-dict-wrapper')) {
+                parent.insertBefore(wrapper.nextElementSibling, wrapper);
+            }
+            
+            saveDictOrder(parent);
+            return;
+        }
+
+        const dictHeader = e.target.closest('.sanskrit-dict-header');
+        if (dictHeader) {
+            const code = dictHeader.dataset.dictcode;
+            const content = document.getElementById(`sanskrit-content-${code}`);
+            const icon = dictHeader.querySelector('.dict-icon');
+            
+            if (content && icon) {
+                const isHidden = content.style.display === 'none';
+                content.style.display = isHidden ? 'block' : 'none';
+                icon.textContent = isHidden ? '▼' : '▶';
+                
+                let states = JSON.parse(localStorage.getItem('sanskritDictStates') || '{}');
+                states[code] = !isHidden; 
+                localStorage.setItem('sanskritDictStates', JSON.stringify(states));
+            }
+            return;
+        }
+
+        const toggleAllBtn = e.target.closest('#sanskrit-toggle-all');
+        if (toggleAllBtn) {
+            let states = JSON.parse(localStorage.getItem('sanskritDictStates') || '{}');
+            const headers = document.querySelectorAll('.sanskrit-dict-header');
+            
+            let anyOpen = false;
+            headers.forEach(h => {
+                const code = h.dataset.dictcode;
+                const content = document.getElementById(`sanskrit-content-${code}`);
+                if (content && content.style.display !== 'none') anyOpen = true;
+            });
+
+            headers.forEach(h => {
+                const code = h.dataset.dictcode;
+                const content = document.getElementById(`sanskrit-content-${code}`);
+                const icon = h.querySelector('.dict-icon');
+                
+                if (content && icon) {
+                    if (anyOpen) {
+                        content.style.display = 'none';
+                        icon.textContent = '▶';
+                        states[code] = true;
+                    } else {
+                        content.style.display = 'block';
+                        icon.textContent = '▼';
+                        states[code] = false;
+                    }
+                }
+            });
+            localStorage.setItem('sanskritDictStates', JSON.stringify(states));
+            return;
+        }
+
+        if (e.target.closest('#dpd-pane') || e.target.closest('#history-pane')) {
+            if (!e.target.closest('#sanskrit-results')) {
+                setTimeout(runSanskritSearch, 300);
+            }
+        }
+    });
+
+    document.addEventListener('dragstart', (e) => {
+        const wrapper = e.target.closest('.sanskrit-dict-wrapper');
+        if (wrapper) {
+            draggedDict = wrapper;
+            e.dataTransfer.effectAllowed = 'move';
+            setTimeout(() => wrapper.style.opacity = '0.4', 0);
+        }
+    });
+
+    document.addEventListener('dragover', (e) => {
+        if (!draggedDict) return;
+        e.preventDefault(); 
+        const overWrapper = e.target.closest('.sanskrit-dict-wrapper');
+        
+        if (overWrapper && overWrapper !== draggedDict) {
+            const parent = overWrapper.parentNode;
+            const rect = overWrapper.getBoundingClientRect();
+            const insertAfter = (e.clientY - rect.top) > (rect.height / 2);
+            
+            if (insertAfter) {
+                parent.insertBefore(draggedDict, overWrapper.nextSibling);
+            } else {
+                parent.insertBefore(draggedDict, overWrapper);
+            }
+        }
+    });
+
+    document.addEventListener('dragend', (e) => {
+        if (draggedDict) {
+            draggedDict.style.opacity = '1';
+            const parent = draggedDict.parentNode;
+            draggedDict = null;
+            if (parent) saveDictOrder(parent);
+        }
+    });
+
+    const dpdPane = document.getElementById('dpd-pane');
+    if (dpdPane) {
+        const observer = new MutationObserver(() => {
+            const dpdResults = document.getElementById('dpd-results');
+            if (dpdResults && dpdResults.dataset.stale === 'true') {
+                dpdResults.dataset.stale = 'false';
+            }
+            
+            if (waitingForFallback) {
+                const query = waitingForFallback;
+                waitingForFallback = null;
+                const fallbackWord = getDpdSanskritFallback();
+                
+                if (fallbackWord && fallbackWord.toLowerCase() !== query.toLowerCase()) {
+                    fetchSanskrit(fallbackWord, true);
+                } else {
+                    const container = document.getElementById('sanskrit-results');
+                    if (container) showEmptyMessage(container, window.isRu, query, renderSanskritHeader(window.isRu, query, false));
+                }
             }
         });
+        observer.observe(dpdPane, { childList: true, subtree: true });
     }
 });
+
+function saveDictOrder(parentElement) {
+    const wrappers = parentElement.querySelectorAll('.sanskrit-dict-wrapper');
+    const newOrder = Array.from(wrappers).map(w => w.dataset.dictcode);
+    let saved = JSON.parse(localStorage.getItem('sanskritDictOrder') || '[]');
+    const updatedOrder = [...new Set([...newOrder, ...saved])];
+    localStorage.setItem('sanskritDictOrder', JSON.stringify(updatedOrder));
+}
 
 function runSanskritSearch() {
     const searchInput = document.getElementById('search-box');
     const query = searchInput ? searchInput.value.trim() : '';
 
-    if (query) {
+    if (query && query !== lastSanskritQuery) {
+        lastSanskritQuery = query;
+        waitingForFallback = null;
+        
+        const dpdResults = document.getElementById('dpd-results');
+        if (dpdResults) dpdResults.dataset.stale = 'true';
+        
         fetchSanskrit(query);
+    } else if (!query && lastSanskritQuery !== '') {
+        lastSanskritQuery = '';
+        waitingForFallback = null;
+        const container = document.getElementById('sanskrit-results');
+        if (container) container.innerHTML = '';
     }
 }
 
-async function fetchSanskrit(query) {
+function highlightQuery(html, query) {
+    if (!query) return html;
+    
+    const div = document.createElement('div');
+    div.innerHTML = html;
+    
+    const chars = query.split('').map(c => c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+    const regex = new RegExp(`(${chars.join('[\\-\\.\\—\\–\\~\\s]*')})`, 'gi');
+    
+    function traverse(node) {
+        if (node.nodeType === 3) {
+            const val = node.nodeValue;
+            if (regex.test(val)) {
+                const span = document.createElement('span');
+                span.innerHTML = val.replace(regex, '<b style="color: #d35400;">$1</b>');
+                node.parentNode.replaceChild(span, node);
+            }
+        } else if (node.nodeType === 1) {
+            if (node.nodeName !== 'SCRIPT' && node.nodeName !== 'STYLE') {
+                Array.from(node.childNodes).forEach(traverse);
+            }
+        }
+    }
+    
+    Array.from(div.childNodes).forEach(traverse);
+    return div.innerHTML;
+}
+
+function getDpdSanskritFallback() {
+    const thElements = document.querySelectorAll('#dpd-results th');
+    for (let th of thElements) {
+        const headerText = th.textContent.trim().toLowerCase();
+        
+        if (headerText === 'sanskrit' || headerText === 'санскрит' || headerText === 'sanskrit root') {
+            const td = th.nextElementSibling;
+            if (td && td.tagName.toLowerCase() === 'td') {
+                let text = td.innerText || td.textContent;
+                text = text.replace(/\[.*?\]/g, '').replace(/\(.*?\)/g, '').trim(); 
+                
+                const words = text.split(/[\s,;+\/\-]+/);
+                for (let word of words) {
+                    const cleanWord = word.replace(/[^a-zA-ZāīūñṭḍṇṃṁḷśṣḥṛṝḷḹĀĪŪÑṬḌṆṂṀḶŚṢḤṚṜḶḸ√]/g, '');
+                    const finalWord = cleanWord.replace('√', '');
+                    if (finalWord.length > 0) return finalWord;
+                }
+            }
+        }
+    }
+    return null;
+}
+
+function renderSanskritHeader(isRu, query, isFallback) {
+    let headerText = isRu ? 'Санскрит' : 'Sanskrit';
+    if (isFallback) {
+        const fallbackNotice = isRu ? `по: <b>${query}</b>` : `by: <b>${query}</b>`;
+        headerText += ` <span style="font-size: 0.8em; font-weight: normal; color: #666;">(${fallbackNotice})</span>`;
+    }
+    return `
+        <div style="display: flex; justify-content: space-between; align-items: center; font-size: 1.2em; margin-bottom: 10px; color: #1a8bdb; border-bottom: 1px solid rgba(26, 139, 219, 0.3); padding-bottom: 5px;">
+            <span style="font-weight: bold;">${headerText}</span>
+            <button id="sanskrit-toggle-all" style="background:none; border:none; color:#999; font-size: 1.1em; font-weight:bold; cursor:pointer;" title="Toggle All">
+                +/-
+            </button>
+        </div>`;
+}
+
+function showEmptyMessage(container, isRu, query, headerHtml) {
+    const msgEmpty = isRu ? `Санскритские параллели для «${query}» не найдены.` : `No Sanskrit parallels found for "${query}".`;
+    container.innerHTML = headerHtml + `<div style="opacity: 0.7;">${msgEmpty}</div>`;
+}
+
+async function fetchSanskrit(query, isFallback = false) {
     const container = document.getElementById('sanskrit-results');
     const toggle = document.getElementById('sanskrit-toggle');
     
@@ -883,20 +1125,6 @@ async function fetchSanskrit(query) {
         return; 
     }
 
-    // 🌐 Определяем язык страницы: проверяем наличие '/ru' в URL или lang="ru" у <html>
-    const isRu = window.location.pathname.includes('/ru') || document.documentElement.lang === 'ru';
-
-    // Тексты для интерфейса на двух языках
-    const i18n = {
-        loading: isRu ? 'Загрузка санскритских словарей... ⏳' : 'Loading Sanskrit dictionaries... ⏳',
-        serverError: isRu ? '❌ Ошибка сервера словаря: ' : '❌ Dictionary server error: ',
-        mwTitle: isRu ? 'Monier-Williams (Санскрит):' : 'Monier-Williams (Sanskrit):',
-        bohtlingkTitle: 'Böhtlingk:',
-        notFound: isRu ? `Санскритские параллели для «${query}» не найдены.` : `Sanskrit parallels for "${query}" not found.`,
-        networkError: isRu ? '⚠️ Не удалось загрузить данные санскрита (ошибка сети/CORS).' : '⚠️ Failed to load Sanskrit data (network/CORS error).'
-    };
-
-    // Стили и отображение контейнера
     container.style.display = 'block';
     container.style.visibility = 'visible';
     container.style.opacity = '1';
@@ -907,7 +1135,13 @@ async function fetchSanskrit(query) {
     container.style.backgroundColor = 'rgba(26, 139, 219, 0.05)';
     container.style.color = 'inherit';
 
-    container.innerHTML = `<div style="color: #666;">${i18n.loading}</div>`;
+    const isRu = window.isRu;
+    const headerHtml = renderSanskritHeader(isRu, query, isFallback);
+    const msgLoading = isRu ? 'Загрузка словарей... ⏳' : 'Loading dictionaries... ⏳';
+    
+    if (!isFallback) {
+        container.innerHTML = headerHtml + `<div style="color: #666;">${msgLoading}</div>`;
+    }
 
     try {
         const targetUrl = `https://www.sanskrit-lexicon.uni-koeln.de/scans/awork/apidev/api1/salt_multidict.php?key=${encodeURIComponent(query)}&input=roman&output=roman`;
@@ -916,43 +1150,123 @@ async function fetchSanskrit(query) {
         const response = await fetch(url);
         
         if (!response.ok) {
-            container.innerHTML = `<div style="color: red;">${i18n.serverError} ${response.status}</div>`;
+            const msgError = isRu ? 'Произошла ошибка при обращении к словарю.' : 'An error occurred while accessing the dictionary.';
+            container.innerHTML = headerHtml + `
+            <div style="color: #c08552; padding: 10px; background: rgba(192, 133, 82, 0.1); border-radius: 5px;">
+                ⚠️ ${msgError} <span style="color: #999; font-size: 0.9em;">(HTTP ${response.status})</span>
+            </div>`;
             return;
         }
 
         const data = await response.json();
-        let htmlContent = '';
+        let htmlContent = headerHtml;
+        let hasResults = false;
+        
+        const dictStates = JSON.parse(localStorage.getItem('sanskritDictStates') || '{}');
+        
+        if (data.dicts && Object.keys(data.dicts).length > 0) {
+            const availableCodes = Object.keys(data.dicts);
+            let savedOrder = JSON.parse(localStorage.getItem('sanskritDictOrder') || '[]');
+            
+            const nameCounts = {};
+            availableCodes.forEach(code => {
+                if (!data.dicts[code] || data.dicts[code].length === 0) return;
+                const name = (data.dictmeta && data.dictmeta[code] && data.dictmeta[code].name) ? data.dictmeta[code].name : code.toUpperCase();
+                nameCounts[name] = (nameCounts[name] || 0) + 1;
+            });
 
-        // Monier-Williams
-        if (data.dicts && data.dicts.mw && data.dicts.mw.length > 0) {
-            htmlContent += `<div style="font-weight: bold; margin-bottom: 5px; color: #1a8bdb;">${i18n.mwTitle}</div>`;
-            data.dicts.mw.forEach(entry => {
-                if (entry.csl && entry.csl.html) {
-                    htmlContent += `<div style="margin-bottom: 8px; padding-left: 8px; border-left: 3px solid #1a8bdb;">${entry.csl.html}</div>`;
+            // Задаем приоритет по префиксам (чтобы захватить mw и mw72, ap и ap90 и т.д.)
+            const prefixes = ['mw', 'shs', 'ap', 'md'];
+            let defaultOrder = [];
+            
+            prefixes.forEach(prefix => {
+                // Находим все доступные словари, начинающиеся с префикса, сортируем и добавляем
+                const matches = availableCodes.filter(code => code.startsWith(prefix)).sort();
+                defaultOrder.push(...matches);
+            });
+
+            // Остальные словари по алфавиту
+            const remainingCodes = availableCodes.filter(code => !defaultOrder.includes(code)).sort();
+            const baseOrder = [...defaultOrder, ...remainingCodes];
+
+            // Накладываем пользовательскую сортировку (если есть) на базовый порядок
+            let finalOrder = savedOrder.filter(code => availableCodes.includes(code));
+            baseOrder.forEach(code => {
+                if (!finalOrder.includes(code) && availableCodes.includes(code)) {
+                    finalOrder.push(code);
                 }
+            });
+
+            finalOrder.forEach(dictCode => {
+                const entries = data.dicts[dictCode];
+                if (!entries || entries.length === 0) return;
+
+                hasResults = true;
+                let dictName = (data.dictmeta && data.dictmeta[dictCode] && data.dictmeta[dictCode].name) 
+                    ? data.dictmeta[dictCode].name 
+                    : dictCode.toUpperCase();
+                
+                if (nameCounts[dictName] > 1) {
+                    const year = (data.dictmeta && data.dictmeta[dictCode] && data.dictmeta[dictCode].year) ? data.dictmeta[dictCode].year + ', ' : '';
+                    dictName += ` <span style="font-weight: normal; font-size: 0.9em; color: #888;">(${year}${dictCode})</span>`;
+                }
+                
+                const isCollapsed = dictStates[dictCode] === true;
+                const icon = isCollapsed ? '▶' : '▼';
+                const displayStyle = isCollapsed ? 'none' : 'block';
+
+                htmlContent += `
+                    <div class="sanskrit-dict-wrapper" data-dictcode="${dictCode}" draggable="true" style="margin-bottom: 5px;">
+                        <div class="sanskrit-dict-header" data-dictcode="${dictCode}" style="display: flex; justify-content: space-between; font-weight: bold; margin-top: 10px; margin-bottom: 5px; color: #1a8bdb; cursor: pointer; user-select: none;">
+                            <div>
+                                <span class="dict-icon" style="display:inline-block; width:18px;">${icon}</span> ${dictName}:
+                            </div>
+                            <div style="min-width: 75px; text-align: right; color: #999; display: flex; justify-content: flex-end; align-items: center;">
+                                <button class="dict-move-up" style="background:none; border:none; cursor:pointer; color:#999; padding: 0 3px;" title="Up">↑</button>
+                                <button class="dict-move-down" style="background:none; border:none; cursor:pointer; color:#999; padding: 0 3px;" title="Down">↓</button>
+                                <span class="dict-drag-handle" style="cursor: grab; margin-left: 8px; color: #999; font-size: 1.1em;" title="Drag to reorder">☰</span>
+                            </div>
+                        </div>
+                        <div class="sanskrit-dict-content" id="sanskrit-content-${dictCode}" style="display: ${displayStyle};">`;
+                
+                entries.forEach(entry => {
+                    if (entry.csl && entry.csl.html) {
+                        const highlightedHtml = highlightQuery(entry.csl.html, query);
+                        htmlContent += `<div style="margin-bottom: 8px; padding-left: 8px; border-left: 3px solid #1a8bdb;">${highlightedHtml}</div>`;
+                    }
+                });
+                
+                htmlContent += `</div></div>`;
             });
         }
 
-        // Böhtlingk
-        if (data.dicts && data.dicts.pw && data.dicts.pw.length > 0) {
-            htmlContent += `<div style="font-weight: bold; margin-top: 10px; margin-bottom: 5px; color: #1a8bdb;">${i18n.bohtlingkTitle}</div>`;
-            data.dicts.pw.forEach(entry => {
-                if (entry.csl && entry.csl.html) {
-                    htmlContent += `<div style="margin-bottom: 8px; padding-left: 8px; border-left: 3px solid #f39c12;">${entry.csl.html}</div>`;
+        if (!hasResults) {
+            if (!isFallback) {
+                const dpdResults = document.getElementById('dpd-results');
+                const isStale = dpdResults ? dpdResults.dataset.stale === 'true' : false;
+                
+                if (isStale) {
+                    waitingForFallback = query;
+                    return;
+                } else {
+                    const fallbackWord = getDpdSanskritFallback();
+                    if (fallbackWord && fallbackWord.toLowerCase() !== query.toLowerCase()) {
+                        return fetchSanskrit(fallbackWord, true);
+                    }
                 }
-            });
-        }
-
-        if (!htmlContent) {
-            container.innerHTML = `<div style="opacity: 0.7;">${i18n.notFound}</div>`;
+            }
+            
+            showEmptyMessage(container, isRu, query, headerHtml);
         } else {
             container.innerHTML = htmlContent;
         }
 
     } catch (error) {
-        console.error("Sanskrit fetch error:", error);
-        container.innerHTML = `<div style="color: red;">${i18n.networkError}</div>`;
+        console.error("Ошибка санскрита:", error);
+        const msgNetworkError = isRu ? 'Не удалось загрузить данные санскрита из-за ошибки сети.' : 'Failed to load Sanskrit data due to a network error.';
+        container.innerHTML = headerHtml + `
+        <div style="color: #c08552; padding: 10px; background: rgba(192, 133, 82, 0.1); border-radius: 5px;">
+            ⚠️ ${msgNetworkError} <span style="color: #999; font-size: 0.9em;">(${error.message})</span>
+        </div>`;
     }
 }
-
-

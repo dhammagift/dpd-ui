@@ -9,7 +9,6 @@ const urlsToCache = [
   '/static/autopali.js',
   '/static/home.js',
   '/static/extra.js',
-  '/static/bold_definitions.js',
   '/static/dpd.css',
   '/static/home.css',
   '/static/extrastyles.css',
