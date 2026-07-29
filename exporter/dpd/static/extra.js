@@ -385,7 +385,7 @@ function changeLanguage(lang) {
       if (container) {
           container.insertAdjacentHTML('beforeend', `
             <div class="spinner-container transparent-spinner">
-                <img src="/static/circle-notch.svg" class="loading-spinner">
+                <img src="static/circle-notch.svg" class="loading-spinner">
             </div>
         `);
       }
@@ -565,7 +565,7 @@ setOneButtonToggleDefault();
 
     const originalHTML = button.innerHTML; // Сохраняем исходное содержимое
     const icon = document.createElement('img');
-    icon.src = '/static/magnifying-glass.svg';
+    icon.src = 'static/magnifying-glass.svg';
     icon.alt = 'Search';
     icon.style.cssText = `
         width: 16px !important;
@@ -658,7 +658,7 @@ if (installLink) {
         // Создаем полупрозрачный спиннер
         dpdResults.insertAdjacentHTML('beforeend', `
             <div class="spinner-container transparent-spinner">
-                <img src="/static/circle-notch.svg" class="loading-spinner">
+                <img src="static/circle-notch.svg" class="loading-spinner">
             </div>
         `);
         //<div class="loading-text">${language === 'en' ? "Loading..." : "Загрузка..."}</div>
@@ -954,12 +954,41 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
+    // --- Логика перетаскивания строго за ползунок ---
+    
+    // Включаем перетаскивание при нажатии на ползунок
+    document.addEventListener('mousedown', (e) => {
+        const handle = e.target.closest('.dict-drag-handle');
+        if (handle) {
+            const wrapper = handle.closest('.sanskrit-dict-wrapper');
+            if (wrapper) wrapper.setAttribute('draggable', 'true');
+        }
+    });
+
+    document.addEventListener('touchstart', (e) => {
+        const handle = e.target.closest('.dict-drag-handle');
+        if (handle) {
+            const wrapper = handle.closest('.sanskrit-dict-wrapper');
+            if (wrapper) wrapper.setAttribute('draggable', 'true');
+        }
+    }, { passive: true });
+
+    // Отключаем перетаскивание при отпускании, чтобы снова работал текст
+    const removeDraggable = () => {
+        document.querySelectorAll('.sanskrit-dict-wrapper').forEach(w => w.removeAttribute('draggable'));
+    };
+    document.addEventListener('mouseup', removeDraggable);
+    document.addEventListener('touchend', removeDraggable);
+
     document.addEventListener('dragstart', (e) => {
         const wrapper = e.target.closest('.sanskrit-dict-wrapper');
-        if (wrapper) {
+        // Проверяем, что атрибут был установлен именно нашим ползунком
+        if (wrapper && wrapper.getAttribute('draggable') === 'true') {
             draggedDict = wrapper;
             e.dataTransfer.effectAllowed = 'move';
             setTimeout(() => wrapper.style.opacity = '0.4', 0);
+        } else {
+            e.preventDefault(); // Блокируем случайные срабатывания
         }
     });
 
@@ -984,10 +1013,12 @@ document.addEventListener("DOMContentLoaded", () => {
     document.addEventListener('dragend', (e) => {
         if (draggedDict) {
             draggedDict.style.opacity = '1';
+            draggedDict.removeAttribute('draggable');
             const parent = draggedDict.parentNode;
             draggedDict = null;
             if (parent) saveDictOrder(parent);
         }
+        removeDraggable();
     });
 
     const dpdPane = document.getElementById('dpd-pane');
@@ -1014,6 +1045,7 @@ document.addEventListener("DOMContentLoaded", () => {
         observer.observe(dpdPane, { childList: true, subtree: true });
     }
 });
+
 
 function saveDictOrder(parentElement) {
     const wrappers = parentElement.querySelectorAll('.sanskrit-dict-wrapper');
@@ -1050,7 +1082,8 @@ function highlightQuery(html, query) {
     div.innerHTML = html;
     
     const chars = query.split('').map(c => c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
-    const regex = new RegExp(`(${chars.join('[\\-\\.\\—\\–\\~\\s]*')})`, 'gi');
+    // В регулярное выражение добавлены короткое тире (–), длинное тире (—) и горизонтальный штрих (―)
+    const regex = new RegExp(`(${chars.join('[\\-\\.\\–\\—\\―\\~\\s]*')})`, 'gi');
     
     function traverse(node) {
         if (node.nodeType === 3) {
@@ -1070,6 +1103,7 @@ function highlightQuery(html, query) {
     Array.from(div.childNodes).forEach(traverse);
     return div.innerHTML;
 }
+
 
 function getDpdSanskritFallback() {
     const thElements = document.querySelectorAll('#dpd-results th');
@@ -1215,8 +1249,9 @@ async function fetchSanskrit(query, isFallback = false) {
                 const icon = isCollapsed ? '▶' : '▼';
                 const displayStyle = isCollapsed ? 'none' : 'block';
 
+                // Здесь убран draggable="true" и добавлен touch-action: none для ползунка
                 htmlContent += `
-                    <div class="sanskrit-dict-wrapper" data-dictcode="${dictCode}" draggable="true" style="margin-bottom: 5px;">
+                    <div class="sanskrit-dict-wrapper" data-dictcode="${dictCode}" style="margin-bottom: 5px;">
                         <div class="sanskrit-dict-header" data-dictcode="${dictCode}" style="display: flex; justify-content: space-between; font-weight: bold; margin-top: 10px; margin-bottom: 5px; color: #1a8bdb; cursor: pointer; user-select: none;">
                             <div>
                                 <span class="dict-icon" style="display:inline-block; width:18px;">${icon}</span> ${dictName}:
@@ -1224,7 +1259,7 @@ async function fetchSanskrit(query, isFallback = false) {
                             <div style="min-width: 75px; text-align: right; color: #999; display: flex; justify-content: flex-end; align-items: center;">
                                 <button class="dict-move-up" style="background:none; border:none; cursor:pointer; color:#999; padding: 0 3px;" title="Up">↑</button>
                                 <button class="dict-move-down" style="background:none; border:none; cursor:pointer; color:#999; padding: 0 3px;" title="Down">↓</button>
-                                <span class="dict-drag-handle" style="cursor: grab; margin-left: 8px; color: #999; font-size: 1.1em;" title="Drag to reorder">☰</span>
+                                <span class="dict-drag-handle" style="cursor: grab; margin-left: 8px; color: #999; font-size: 1.1em; touch-action: none;" title="Drag to reorder">☰</span>
                             </div>
                         </div>
                         <div class="sanskrit-dict-content" id="sanskrit-content-${dictCode}" style="display: ${displayStyle};">`;
@@ -1270,8 +1305,6 @@ async function fetchSanskrit(query, isFallback = false) {
         </div>`;
     }
 }
-
-
 
 
 // ===== КЛИЕНТСКАЯ ЛОГИКА ПОИСКА (ЗАМЕНА MAIN.PY) =====
@@ -1321,38 +1354,76 @@ async function handleClientSearch(rawQuery) {
     const query = cleanQueryParam(rawQuery);
     if (!query) return;
 
+    // Обновляем URL в адресной строке без перезагрузки
     const newUrl = new URL(window.location);
     newUrl.searchParams.set('q', query);
     window.history.pushState({}, '', newUrl);
 
-    if (typeof showSpinner === 'function') {
-        showSpinner();
+    const resultsContainer = document.getElementById('dpd-results');
+    const summaryContainer = document.getElementById('summary-results');
+
+    // 1. Очищаем старое саммари, чтобы оно не висело во время новой загрузки
+    if (summaryContainer) {
+        summaryContainer.innerHTML = '';
+    }
+
+    // 2. Включаем спиннер ожидания и текст прямо в блоке результатов
+    if (resultsContainer) {
+        const loadingText = window.isRu ? 'Ждём ответ от DPD...' : 'Waiting for a response from DPD...';
+        resultsContainer.innerHTML = `
+            <div class="message-container" style="text-align: center; margin-top: 40px;">
+                <div class="spinner-container transparent-spinner" style="margin-bottom: 15px;">
+                    <img src="static/circle-notch.svg" class="loading-spinner" alt="Loading">
+                </div>
+                <p class="message">${loadingText}</p>
+            </div>
+        `;
+        resultsContainer.dataset.stale = 'true';
     }
 
     try {
+        // 3. Выполняем сетевой запрос к словарям
         const currentLang = window.isRu ? 'ru' : 'en';
         const data = await fetchFromBackend(query, currentLang);
 
-        const resultsContainer = document.getElementById('dpd-results');
+        // 4. Отрисовываем полученные данные, заменяя спиннер
         if (resultsContainer) {
             resultsContainer.innerHTML = data.dpd_html || '<div class="message">Ничего не найдено</div>';
             resultsContainer.dataset.stale = 'false';
         }
 
-        const summaryContainer = document.getElementById('summary-results');
         if (summaryContainer && data.summary_html) {
             summaryContainer.innerHTML = data.summary_html;
         }
+
+        // 5. Принудительно "дёргаем" переключатели для работы скрипта Антона
+        const togglesToUpdate = [
+            'summary-toggle', 
+            'grammar-toggle', 
+            'example-toggle', 
+            'sanskrit-toggle'
+        ];
+        
+        togglesToUpdate.forEach(toggleId => {
+            const toggleElement = document.getElementById(toggleId);
+            if (toggleElement) {
+                const event = new Event('change', { bubbles: true });
+                toggleElement.dispatchEvent(event);
+            }
+        });
+
     } catch (error) {
-        const resultsContainer = document.getElementById('dpd-results');
+        // В случае ошибки показываем сообщение
         if (resultsContainer) {
-            resultsContainer.innerHTML = `<div style="color: #c08552; padding: 20px;">Ошибка загрузки словаря: ${error.message}. Проверьте настройки CORS на целевом сервере.</div>`;
+            resultsContainer.innerHTML = `
+                <div style="color: #c08552; padding: 20px; text-align: center;">
+                    Ошибка загрузки словаря: ${error.message}.<br>Проверьте соединение или CORS.
+                </div>
+            `;
         }
-    } finally {
-        const spinner = document.querySelector('.spinner-container');
-        if (spinner) spinner.remove();
     }
 }
+
 
 document.addEventListener('DOMContentLoaded', () => {
     const searchForm = document.getElementById('search-form');
