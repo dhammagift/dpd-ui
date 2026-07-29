@@ -9,6 +9,8 @@ or as a standalone site https://dict.dhamma.gift for those who need it's unique 
 
 List of improvements:
 
+UPD integrated numerous Sanskrit Dictionaries provided by https://www.sanskrit-lexicon.uni-koeln.de/ screenshot after the list of changes
+
 1. OpenDict menu - with numerous dictionaries pali + sanskrit, Dharmamitra and few other resourses.
 2. sortable table for grammar dict on the client side 
 3. example links opened on Dhamma.gift with word from example highlighted and with autoscroll to the first match. added for mn dn sn an dhp snp ud  
@@ -25,6 +27,12 @@ List of improvements:
 14. disabled slow 1s transition of the dark/light theme for popup mode as it makes popup load look glitchy
 15. added protection against repeated form submits
 16. other improvements mostly on css side to make site mobile user friendly. Related to input sizes and saving extra space
+
+UPD Sanskrit integration
+
+<img width="1927" height="950" alt="Image" src="https://github.com/user-attachments/assets/01fdebcd-ed4d-49c8-8d74-530f7ce8d191" />
+
+
 
 ## installation 
 

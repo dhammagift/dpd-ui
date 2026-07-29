@@ -1097,7 +1097,7 @@ function getDpdSanskritFallback() {
 function renderSanskritHeader(isRu, query, isFallback) {
     let headerText = isRu ? 'Санскрит' : 'Sanskrit';
     if (isFallback) {
-        const fallbackNotice = isRu ? `по: <b>${query}</b>` : `by: <b>${query}</b>`;
+        const fallbackNotice = isRu ? `слово: <b>${query}</b>` : `слово: <b>${query}</b>`;
         headerText += ` <span style="font-size: 0.8em; font-weight: normal; color: #666;">(${fallbackNotice})</span>`;
     }
     return `
@@ -1270,3 +1270,107 @@ async function fetchSanskrit(query, isFallback = false) {
         </div>`;
     }
 }
+
+
+
+
+// ===== КЛИЕНТСКАЯ ЛОГИКА ПОИСКА (ЗАМЕНА MAIN.PY) =====
+
+const ENDPOINTS = {
+    en: { baseUrl: 'https://dpdict.net', searchPath: '/search_json' },
+    ru: { baseUrl: 'https://ru.dpdict.net', searchPath: '/search_json' }
+};
+
+function cleanQueryParam(original) {
+    let cleaned = original.replace(/https?:\/\/\S+/g, '');
+    cleaned = cleaned.replace(/["'()[\]·]/g, '');
+    cleaned = cleaned.replace(/\s+/g, ' ');
+    return cleaned.trim().toLowerCase();
+}
+
+async function fetchFromBackend(query, currentLang, tryFallback = true) {
+    let lang = currentLang;
+
+    if (tryFallback && /[а-яА-ЯёЁ]/.test(query)) {
+        lang = 'ru';
+        tryFallback = false;
+    }
+
+    const config = ENDPOINTS[lang];
+    const url = new URL(config.baseUrl + config.searchPath);
+    url.searchParams.set('q', query);
+
+    const response = await fetch(url);
+    if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    const data = await response.json();
+
+    if (tryFallback && !data.dpd_html) {
+        const fallbackLang = lang === 'en' ? 'ru' : 'en';
+        const fallbackData = await fetchFromBackend(query, fallbackLang, false);
+        if (fallbackData && fallbackData.dpd_html) {
+            return fallbackData;
+        }
+    }
+    return data;
+}
+
+async function handleClientSearch(rawQuery) {
+    const query = cleanQueryParam(rawQuery);
+    if (!query) return;
+
+    const newUrl = new URL(window.location);
+    newUrl.searchParams.set('q', query);
+    window.history.pushState({}, '', newUrl);
+
+    if (typeof showSpinner === 'function') {
+        showSpinner();
+    }
+
+    try {
+        const currentLang = window.isRu ? 'ru' : 'en';
+        const data = await fetchFromBackend(query, currentLang);
+
+        const resultsContainer = document.getElementById('dpd-results');
+        if (resultsContainer) {
+            resultsContainer.innerHTML = data.dpd_html || '<div class="message">Ничего не найдено</div>';
+            resultsContainer.dataset.stale = 'false';
+        }
+
+        const summaryContainer = document.getElementById('summary-results');
+        if (summaryContainer && data.summary_html) {
+            summaryContainer.innerHTML = data.summary_html;
+        }
+    } catch (error) {
+        const resultsContainer = document.getElementById('dpd-results');
+        if (resultsContainer) {
+            resultsContainer.innerHTML = `<div style="color: #c08552; padding: 20px;">Ошибка загрузки словаря: ${error.message}. Проверьте настройки CORS на целевом сервере.</div>`;
+        }
+    } finally {
+        const spinner = document.querySelector('.spinner-container');
+        if (spinner) spinner.remove();
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const searchForm = document.getElementById('search-form');
+    const searchBox = document.getElementById('search-box');
+
+    if (searchForm) {
+        searchForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            if (searchBox && searchBox.value) {
+                handleClientSearch(searchBox.value);
+            }
+        });
+    }
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const initialQuery = urlParams.get('q');
+    if (initialQuery) {
+        if (searchBox) searchBox.value = initialQuery;
+        handleClientSearch(initialQuery);
+    }
+});
