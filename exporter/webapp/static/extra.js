@@ -834,5 +834,125 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 });
 
+// extra.js — Мультиязычная версия (RU / EN)
+document.addEventListener("DOMContentLoaded", () => {
+    const searchForm = document.getElementById('search-form');
+    const searchInput = document.getElementById('search-box');
+    const sanskritToggle = document.getElementById('sanskrit-toggle');
+
+    // 1. Запуск при загрузке страницы, если поле не пустое
+    if (searchInput && searchInput.value.trim()) {
+        runSanskritSearch();
+    }
+
+    // 2. Слушатель отправки формы
+    if (searchForm) {
+        searchForm.addEventListener('submit', () => {
+            setTimeout(runSanskritSearch, 200);
+        });
+    }
+
+    // 3. Реакция на переключатель в настройках
+    if (sanskritToggle) {
+        sanskritToggle.addEventListener('change', () => {
+            const container = document.getElementById('sanskrit-results');
+            if (container) {
+                container.style.display = sanskritToggle.checked ? 'block' : 'none';
+            }
+        });
+    }
+});
+
+function runSanskritSearch() {
+    const searchInput = document.getElementById('search-box');
+    const query = searchInput ? searchInput.value.trim() : '';
+
+    if (query) {
+        fetchSanskrit(query);
+    }
+}
+
+async function fetchSanskrit(query) {
+    const container = document.getElementById('sanskrit-results');
+    const toggle = document.getElementById('sanskrit-toggle');
+    
+    if (!container) return;
+
+    if (toggle && !toggle.checked) {
+        container.style.display = 'none';
+        return; 
+    }
+
+    // 🌐 Определяем язык страницы: проверяем наличие '/ru' в URL или lang="ru" у <html>
+    const isRu = window.location.pathname.includes('/ru') || document.documentElement.lang === 'ru';
+
+    // Тексты для интерфейса на двух языках
+    const i18n = {
+        loading: isRu ? 'Загрузка санскритских словарей... ⏳' : 'Loading Sanskrit dictionaries... ⏳',
+        serverError: isRu ? '❌ Ошибка сервера словаря: ' : '❌ Dictionary server error: ',
+        mwTitle: isRu ? 'Monier-Williams (Санскрит):' : 'Monier-Williams (Sanskrit):',
+        bohtlingkTitle: 'Böhtlingk:',
+        notFound: isRu ? `Санскритские параллели для «${query}» не найдены.` : `Sanskrit parallels for "${query}" not found.`,
+        networkError: isRu ? '⚠️ Не удалось загрузить данные санскрита (ошибка сети/CORS).' : '⚠️ Failed to load Sanskrit data (network/CORS error).'
+    };
+
+    // Стили и отображение контейнера
+    container.style.display = 'block';
+    container.style.visibility = 'visible';
+    container.style.opacity = '1';
+    container.style.marginTop = '15px';
+    container.style.padding = '12px';
+    container.style.border = '2px solid #1a8bdb';
+    container.style.borderRadius = '8px';
+    container.style.backgroundColor = 'rgba(26, 139, 219, 0.05)';
+    container.style.color = 'inherit';
+
+    container.innerHTML = `<div style="color: #666;">${i18n.loading}</div>`;
+
+    try {
+        const targetUrl = `https://www.sanskrit-lexicon.uni-koeln.de/scans/awork/apidev/api1/salt_multidict.php?key=${encodeURIComponent(query)}&input=roman&output=roman`;
+        const url = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
+        
+        const response = await fetch(url);
+        
+        if (!response.ok) {
+            container.innerHTML = `<div style="color: red;">${i18n.serverError} ${response.status}</div>`;
+            return;
+        }
+
+        const data = await response.json();
+        let htmlContent = '';
+
+        // Monier-Williams
+        if (data.dicts && data.dicts.mw && data.dicts.mw.length > 0) {
+            htmlContent += `<div style="font-weight: bold; margin-bottom: 5px; color: #1a8bdb;">${i18n.mwTitle}</div>`;
+            data.dicts.mw.forEach(entry => {
+                if (entry.csl && entry.csl.html) {
+                    htmlContent += `<div style="margin-bottom: 8px; padding-left: 8px; border-left: 3px solid #1a8bdb;">${entry.csl.html}</div>`;
+                }
+            });
+        }
+
+        // Böhtlingk
+        if (data.dicts && data.dicts.pw && data.dicts.pw.length > 0) {
+            htmlContent += `<div style="font-weight: bold; margin-top: 10px; margin-bottom: 5px; color: #1a8bdb;">${i18n.bohtlingkTitle}</div>`;
+            data.dicts.pw.forEach(entry => {
+                if (entry.csl && entry.csl.html) {
+                    htmlContent += `<div style="margin-bottom: 8px; padding-left: 8px; border-left: 3px solid #f39c12;">${entry.csl.html}</div>`;
+                }
+            });
+        }
+
+        if (!htmlContent) {
+            container.innerHTML = `<div style="opacity: 0.7;">${i18n.notFound}</div>`;
+        } else {
+            container.innerHTML = htmlContent;
+        }
+
+    } catch (error) {
+        console.error("Sanskrit fetch error:", error);
+        container.innerHTML = `<div style="color: red;">${i18n.networkError}</div>`;
+    }
+}
 
 

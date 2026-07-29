@@ -1070,3 +1070,84 @@ body {
   /* Убираем статические отступы, так как их теперь ставит JS */
   margin: 0 !important; 
 }
+
+/* --- SANSKRIT LOOKUP STYLES --- */
+#sanskrit-results {
+    margin-top: 15px;
+    padding: 10px 15px;
+    border-radius: 7px;
+    border: 2px solid var(--secondary); /* Используем зеленый акцентный цвет */
+    background-color: var(--light-shade);
+    display: none; /* Скрыт по умолчанию, пока не придут данные */
+}
+
+.dark-mode #sanskrit-results {
+    background-color: var(--dark-shade);
+    border-color: var(--secondary);
+}
+
+.sanskrit-dict-title {
+    color: var(--secondary);
+    font-size: 0.9em;
+    font-weight: 700;
+    margin-top: 10px;
+    margin-bottom: 5px;
+    border-bottom: 1px solid var(--gray-transparent);
+    padding-bottom: 2px;
+}
+
+.sanskrit-dict-title:first-child {
+    margin-top: 0;
+}
+
+.sanskrit-entry {
+    margin-bottom: 10px;
+    font-size: 0.95em;
+    line-height: 150%;
+    color: var(--dark);
+}
+
+.dark-mode .sanskrit-entry {
+    color: var(--light);
+}
+
+/* Специфичные фиксы для HTML, который прилетает из API */
+.sanskrit-entry H1, .sanskrit-entry H2 {
+    font-size: 1.1em;
+    margin: 0 0 5px 0;
+}
+.sanskrit-entry .sdata {
+    font-weight: bold;
+    color: var(--primary-text);
+}
+
+.sanskrit-alert {
+    padding: 10px;
+    font-size: 0.9em;
+    font-style: italic;
+    border-radius: 5px;
+}
+
+.sanskrit-alert.info {
+    color: var(--secondary); /* Используем твой зеленый */
+}
+
+.sanskrit-alert.warning {
+    color: #856404;
+    background-color: #fff3cd; /* Легкий желтый фон для "не найдено" */
+}
+
+.dark-mode .sanskrit-alert.warning {
+    color: #e5c468;
+    background-color: transparent;
+}
+
+.sanskrit-alert.error {
+    color: #721c24;
+    background-color: #f8d7da; /* Красноватый фон для ошибок */
+}
+
+.dark-mode .sanskrit-alert.error {
+    color: #ff6b6b;
+    background-color: transparent;
+}
