@@ -484,6 +484,39 @@ document.addEventListener('click', (e) => {
 
 //ссылки в футере конец
 
+// Функции переключения с сохранением состояния
+function toggleDesktopHistoryBtn() {
+    const historyPane = document.getElementById('history-pane');
+    if (historyPane) {
+        const isHidden = historyPane.classList.toggle('desktop-hidden');
+        localStorage.setItem('desktopHistoryHidden', isHidden);
+    }
+}
+
+function toggleDesktopSettingsBtn() {
+    const settingsPane = document.querySelector('.settings-pane');
+    if (settingsPane) {
+        const isHidden = settingsPane.classList.toggle('desktop-hidden');
+        localStorage.setItem('desktopSettingsHidden', isHidden);
+    }
+}
+
+// Восстановление состояния при загрузке страницы
+document.addEventListener('DOMContentLoaded', function() {
+    const historyHidden = localStorage.getItem('desktopHistoryHidden');
+    const settingsHidden = localStorage.getItem('desktopSettingsHidden');
+    
+    // Если в памяти записано 'true', скрываем панель
+    if (historyHidden === 'true') {
+        const historyPane = document.getElementById('history-pane');
+        if (historyPane) historyPane.classList.add('desktop-hidden');
+    }
+    
+    if (settingsHidden === 'true') {
+        const settingsPane = document.querySelector('.settings-pane');
+        if (settingsPane) settingsPane.classList.add('desktop-hidden');
+    }
+});
 
 
 function toggleSettings() {

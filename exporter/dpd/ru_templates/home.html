@@ -43,7 +43,6 @@
           onclick="changeLanguage('en')">en</button>
       </div>
 
-
       <div class="dict-dropdown-container">
         <button class="round-button dict-dropdown-toggle" title="Открыть слово в разных словарях"
           onclick="toggleDictDropdown(event)">
@@ -51,9 +50,6 @@
         </button>
         <div class="dict-dropdown-menu-down"></div>
       </div>
-
-
-
 
       <form id="search-form">
         <div class="mb-3 form-group input-group ui-widget dropup rounded-pill">
@@ -77,6 +73,16 @@
           </button>
         </div>
       </form>
+
+      <!-- Новые иконки для десктопа вынесены отдельно и прижаты вправо -->
+      <div class="desktop-extra-icons">
+        <button class="desktop-icon-btn" type="button" onclick="toggleDesktopHistoryBtn()" title="Toggle History">
+            <img src="static/clock-rotate-left.svg" alt="History" class="header-icon-img">
+        </button>
+        <button class="desktop-icon-btn" type="button" onclick="toggleDesktopSettingsBtn()" title="Toggle Settings">
+            <img src="static/gear.svg" alt="Settings" class="header-icon-img">
+        </button>
+      </div>
     </div>
 
     <div class="main-pane" id="main-pane">

@@ -54,7 +54,6 @@
         <button class="round-button" title="toggle Language En/Ru (Alt+1 or Ctrl+1)" onclick="changeLanguage('ru')"><img src="static/dpd-logo.svg" alt="dpd logo" class="header-image"></button>
       </div>
 
-
       <div class="dict-dropdown-container">
         <button class="round-button dict-dropdown-toggle" title="Open dictionaries"
           onclick="toggleDictDropdown(event)">
@@ -62,7 +61,6 @@
         </button>
         <div class="dict-dropdown-menu-down"></div>
       </div>
-
 
       <form id="search-form">
         <div class="mb-3 form-group input-group ui-widget dropup rounded-pill">
@@ -88,9 +86,18 @@
               .l - ḷ
             </span>
           </button>
-
         </div>
       </form>
+
+      <!-- Новые иконки для десктопа вынесены отдельно и прижаты вправо -->
+      <div class="desktop-extra-icons">
+        <button class="desktop-icon-btn" type="button" onclick="toggleDesktopHistoryBtn()" title="Toggle History">
+            <img src="static/clock-rotate-left.svg" alt="History" class="header-icon-img">
+        </button>
+        <button class="desktop-icon-btn" type="button" onclick="toggleDesktopSettingsBtn()" title="Toggle Settings">
+            <img src="static/gear.svg" alt="Settings" class="header-icon-img">
+        </button>
+      </div>
     </div>
     <div class="main-pane" id="main-pane">
       <div class="history-pane" id="history-pane">

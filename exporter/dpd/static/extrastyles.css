@@ -435,7 +435,7 @@ body {
     width: 20px;
     height: 20px;
     margin-right: 8px; /* Расстояние между иконкой и текстом */
-    background-image: url('/static/clock-rotate-left.svg');
+    background-image: url('clock-rotate-left.svg');
     background-size: contain;
     background-repeat: no-repeat;
   }
@@ -446,7 +446,7 @@ body {
     width: 20px;
     height: 20px;
     margin-right: 8px; /* Расстояние между иконкой и текстом */
-    background-image: url('/static/gear.svg');
+    background-image: url('gear.svg');
     background-size: contain;
     background-repeat: no-repeat;
   }
@@ -1069,4 +1069,69 @@ body {
   box-shadow: 0 8px 24px rgba(0,0,0,0.2);
   /* Убираем статические отступы, так как их теперь ставит JS */
   margin: 0 !important; 
+}
+
+/* Десктопные иконки в правом углу */
+
+/* Добавляем относительное позиционирование родителю, чтобы отсчитывать от него */
+.header-pane {
+    position: relative;
+}
+
+/* Синхронизируем брейкпоинт с мобильной логикой панелей (769px) */
+@media only screen and (min-width: 769px) {
+    .desktop-extra-icons {
+        position: absolute; /* Вырываем из flex-потока, чтобы не ломать центрирование */
+        right: 15px;
+        top: 50%;
+        transform: translateY(-50%);
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
+    
+    /* Прозрачная кнопка-иконка без синего фона */
+    .desktop-icon-btn {
+        background: none;
+        border: none;
+        padding: 5px;
+        margin: 0;
+        cursor: pointer;
+        box-shadow: none;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 0.6;
+        transition: opacity 0.2s;
+    }
+
+    .desktop-icon-btn:hover {
+        opacity: 1;
+        background: none;
+        box-shadow: none;
+    }
+
+    .header-icon-img {
+        width: 18px;
+        height: 18px;
+    }
+
+    .dark-mode .header-icon-img {
+        filter: invert(100%);
+    }
+
+    #history-pane.desktop-hidden {
+        display: none !important;
+    }
+    
+    .settings-pane.desktop-hidden {
+        display: none !important;
+    }
+}
+
+/* Скрытие на мобильных экранах */
+@media only screen and (max-width: 768px) {
+    .desktop-extra-icons {
+        display: none !important;
+    }
 }
