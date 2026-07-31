@@ -1,4 +1,4 @@
-
+//история перестала добавляться на лету и теперь требует перезагрузки страницы. 
 
 window.isRu = window.location.pathname.startsWith('/ru');
 
@@ -450,8 +450,106 @@ function updateLink(el, baseUrl) {
   el.href = url.toString();
 }
 
+function updateHistoryUI(query) {
+    const historyList = document.getElementById('history-list-pane');
+    if (!historyList) return;
 
+    // Удаляем дубликат, если слово уже есть в истории
+    const existingItems = historyList.querySelectorAll('li');
+    existingItems.forEach(item => {
+        if (item.textContent.trim().toLowerCase() === query.toLowerCase()) {
+            item.remove();
+        }
+    });
 
+    // Создаем новый элемент списка
+    const li = document.createElement('li');
+    li.textContent = query;
+
+    // Добавляем в начало списка
+    if (historyList.firstChild) {
+        historyList.insertBefore(li, historyList.firstChild);
+    } else {
+        historyList.appendChild(li);
+    }
+}
+
+async function handleClientSearch(rawQuery) {
+    const query = cleanQueryParam(rawQuery);
+    if (!query) return;
+
+    // Обновляем URL в адресной строке без перезагрузки
+    const newUrl = new URL(window.location);
+    newUrl.searchParams.set('q', query);
+    window.history.pushState({}, '', newUrl);
+
+    // Моментально добавляем слово в панель истории
+    updateHistoryUI(query);
+
+    const resultsContainer = document.getElementById('dpd-results');
+    const summaryContainer = document.getElementById('summary-results');
+
+    // 1. Очищаем старое саммари, чтобы оно не висело во время новой загрузки
+    if (summaryContainer) {
+        summaryContainer.innerHTML = '';
+    }
+
+    // 2. Включаем спиннер ожидания и текст прямо в блоке результатов
+    if (resultsContainer) {
+        const loadingText = window.isRu ? 'Ждём ответ от DPD...' : 'Waiting for a response from DPD...';
+        resultsContainer.innerHTML = `
+            <div class="message-container" style="text-align: center; margin-top: 40px;">
+                <div class="spinner-container transparent-spinner" style="margin-bottom: 15px;">
+                    <img src="static/circle-notch.svg" class="loading-spinner" alt="Loading">
+                </div>
+                <p class="message">${loadingText}</p>
+            </div>
+        `;
+        resultsContainer.dataset.stale = 'true';
+    }
+
+    try {
+        // 3. Выполняем сетевой запрос к словарям
+        const currentLang = window.isRu ? 'ru' : 'en';
+        const data = await fetchFromBackend(query, currentLang);
+
+        // 4. Отрисовываем полученные данные, заменяя спиннер
+        if (resultsContainer) {
+            resultsContainer.innerHTML = data.dpd_html || '<div class="message">Ничего не найдено</div>';
+            resultsContainer.dataset.stale = 'false';
+        }
+
+        if (summaryContainer && data.summary_html) {
+            summaryContainer.innerHTML = data.summary_html;
+        }
+
+        // 5. Принудительно "дёргаем" переключатели для работы скрипта Антона
+        const togglesToUpdate = [
+            'summary-toggle', 
+            'grammar-toggle', 
+            'example-toggle', 
+            'sanskrit-toggle'
+        ];
+        
+        togglesToUpdate.forEach(toggleId => {
+            const toggleElement = document.getElementById(toggleId);
+            if (toggleElement) {
+                const event = new Event('change', { bubbles: true });
+                toggleElement.dispatchEvent(event);
+            }
+        });
+
+    } catch (error) {
+        // В случае ошибки показываем сообщение
+        if (resultsContainer) {
+            resultsContainer.innerHTML = `
+                <div style="color: #c08552; padding: 20px; text-align: center;">
+                    Ошибка загрузки словаря: ${error.message}.<br>Проверьте соединение или CORS.
+                </div>
+            `;
+        }
+    }
+}
 
 // Инициализация ссылок при загрузке
 //  updateLink('fdg-link', window.location.href.includes('/ru') ? 'https://dhamma.gift/ru/?p=-kn' : 'https://dhamma.gift?p=-kn');
@@ -1387,80 +1485,6 @@ async function fetchFromBackend(query, currentLang, tryFallback = true) {
         }
     }
     return data;
-}
-
-async function handleClientSearch(rawQuery) {
-    const query = cleanQueryParam(rawQuery);
-    if (!query) return;
-
-    // Обновляем URL в адресной строке без перезагрузки
-    const newUrl = new URL(window.location);
-    newUrl.searchParams.set('q', query);
-    window.history.pushState({}, '', newUrl);
-
-    const resultsContainer = document.getElementById('dpd-results');
-    const summaryContainer = document.getElementById('summary-results');
-
-    // 1. Очищаем старое саммари, чтобы оно не висело во время новой загрузки
-    if (summaryContainer) {
-        summaryContainer.innerHTML = '';
-    }
-
-    // 2. Включаем спиннер ожидания и текст прямо в блоке результатов
-    if (resultsContainer) {
-        const loadingText = window.isRu ? 'Ждём ответ от DPD...' : 'Waiting for a response from DPD...';
-        resultsContainer.innerHTML = `
-            <div class="message-container" style="text-align: center; margin-top: 40px;">
-                <div class="spinner-container transparent-spinner" style="margin-bottom: 15px;">
-                    <img src="static/circle-notch.svg" class="loading-spinner" alt="Loading">
-                </div>
-                <p class="message">${loadingText}</p>
-            </div>
-        `;
-        resultsContainer.dataset.stale = 'true';
-    }
-
-    try {
-        // 3. Выполняем сетевой запрос к словарям
-        const currentLang = window.isRu ? 'ru' : 'en';
-        const data = await fetchFromBackend(query, currentLang);
-
-        // 4. Отрисовываем полученные данные, заменяя спиннер
-        if (resultsContainer) {
-            resultsContainer.innerHTML = data.dpd_html || '<div class="message">Ничего не найдено</div>';
-            resultsContainer.dataset.stale = 'false';
-        }
-
-        if (summaryContainer && data.summary_html) {
-            summaryContainer.innerHTML = data.summary_html;
-        }
-
-        // 5. Принудительно "дёргаем" переключатели для работы скрипта Антона
-        const togglesToUpdate = [
-            'summary-toggle', 
-            'grammar-toggle', 
-            'example-toggle', 
-            'sanskrit-toggle'
-        ];
-        
-        togglesToUpdate.forEach(toggleId => {
-            const toggleElement = document.getElementById(toggleId);
-            if (toggleElement) {
-                const event = new Event('change', { bubbles: true });
-                toggleElement.dispatchEvent(event);
-            }
-        });
-
-    } catch (error) {
-        // В случае ошибки показываем сообщение
-        if (resultsContainer) {
-            resultsContainer.innerHTML = `
-                <div style="color: #c08552; padding: 20px; text-align: center;">
-                    Ошибка загрузки словаря: ${error.message}.<br>Проверьте соединение или CORS.
-                </div>
-            `;
-        }
-    }
 }
 
 
