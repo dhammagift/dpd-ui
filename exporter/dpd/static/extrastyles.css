@@ -197,12 +197,6 @@ align-items: center;
     transition: 0s !important;
 }
 
-.search-box {
-    transition: 0s !important;
-    width: 300px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
 .search-button {
     background-color: var(--primary);
     border-radius: 7px;
@@ -282,26 +276,6 @@ body {
         display: none;
     }
     
-.search-box {
-    padding-right: 25px; /* Чтобы место для крестика появилось */
-    position: relative;
-}
-
-.search-box::-webkit-input-placeholder {
-    /* Стиль для текстов-подсказок в поле */
-    color: transparent;
-}
-
-.search-box:focus::-webkit-search-cancel-button {
-    display: block;
-    position: absolute;
-    right: 5px;
-    top: 10px;
-  /*  transform: translateY(-50%);*/
-    cursor: pointer;
-    color: #888;
-}
-
 .alogo {
     text-decoration: none; /* Убирает подчеркивание */
     color: inherit; /* Наследует цвет текста от родительского элемента */
@@ -373,13 +347,6 @@ body {
         width: 100%; /* Занимаем всю доступную ширину */
     }
 
-.search-box {
-    min-width: 200px; /* Минимальная ширина поля ввода */
-    max-width: 350px; /* Максимальная ширина поля ввода */
-   /*  flex: 3; Занимает 3/4 ширины */
-    margin: 0; /* Убираем отступы */
-    width: 100%; /* Заполняет доступное пространство */
-}
 
 #search-help-button {
         display: none;
@@ -469,19 +436,53 @@ body {
     color: var(--foreground-dark);
 }
 
+/* Базовые стили (десктоп и общие правила) */
+.search-box {
+    position: relative;
+    width: 300px;
+    margin: 0;
+    padding-right: 25px; /* Чтобы место для крестика появилось */
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    transition: 0s !important;
+}
+
+.search-box::-webkit-input-placeholder {
+    color: transparent;
+}
+
+.search-box::-webkit-search-cancel-button {
+    cursor: pointer;
+    -webkit-appearance: searchfield-cancel-button;
+}
+
+/* Стили для планшетов (до 768px) */
+@media (max-width: 768px) {
+    .search-box {
+        width: 100%;
+        min-width: 200px;
+        max-width: 350px;
+    }
+}
+
+/* Стили для узких экранов мобильных (до 450px) */
+@media (max-width: 450px) {
+    .search-box {
+        flex: 1;
+        min-width: 0;
+        font-size: 14px;
+        /* Сохраняем 25px справа для крестика, чтобы он не перекрывал текст */
+        padding: 2px 25px 2px 5px; 
+    }
+}
+
+
+
 
 @media (max-width: 450px) {
     .header-pane {
         flex-wrap: nowrap !important;
         gap: 3px;
         padding: 5px;
-    }
-
-    .search-box {
-        min-width: 0;
-        flex: 1;
-        font-size: 14px;
-        padding: 2px 5px;
     }
 
     .search-button {
@@ -520,9 +521,6 @@ body {
     }
 }
 
-  #history-list {
-    list-style-type: none;
-  }
 
 
 /* Стили для спиннера */
@@ -1134,4 +1132,10 @@ body {
     .desktop-extra-icons {
         display: none !important;
     }
+}
+
+#history-list {
+  list-style-type: none;
+  padding: 0;
+  margin: 0;
 }

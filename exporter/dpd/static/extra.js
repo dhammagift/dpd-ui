@@ -67,7 +67,36 @@ const LANGUAGE_PREFIX = '/ru'; // Префикс для русского язы�
 const DEFAULT_LANG = 'en';     // Язык по умолчанию
 
 // ======== Основной код ========
-//document.addEventListener("DOMContentLoaded", applySavedLanguage);
+// Обработка горячих клавиш Alt+H (История) и Alt+S (Настройки) независимо от раскладки
+document.addEventListener('keydown', function(event) {
+    if (event.altKey) {
+        if (event.code === 'KeyH') {
+            event.preventDefault();
+            if (window.innerWidth >= 769) {
+                if (typeof toggleDesktopHistoryBtn === 'function') {
+                    toggleDesktopHistoryBtn();
+                }
+            } else {
+                if (typeof toggleHistory === 'function') {
+                    toggleHistory();
+                }
+            }
+        } else if (event.code === 'KeyS') {
+            event.preventDefault();
+            if (window.innerWidth >= 769) {
+                if (typeof toggleDesktopSettingsBtn === 'function') {
+                    toggleDesktopSettingsBtn();
+                }
+            } else {
+                if (typeof toggleSettings === 'function') {
+                    toggleSettings();
+                }
+            }
+        }
+    }
+});
+
+
 document.addEventListener('keydown', function(event) {
   const isCtrl3 = event.ctrlKey && event.code === 'Digit3';
   const isAlt3 = event.altKey && event.code === 'Digit3';
@@ -255,12 +284,6 @@ new MutationObserver((mutations) => {
 
 
 let startMessage;
-//<p class="message"><a class="installButton" >Install Dict.DG</a> to enable lookup by sharing words from any site of app</p>
-//<p class="message">
-//    More info: <a href="https://docs.dpdict.net/webapp/" target="_blank">Site</a> or 
-//    <a href="https://docs.dpdict.net/" target="_blank">DPD in general</a>.
-//</p>
-
 
 function initStartMessage(lang) {
     
@@ -450,41 +473,30 @@ function updateLink(el, baseUrl) {
   el.href = url.toString();
 }
 
-function updateHistoryUI(query) {
-    const historyList = document.getElementById('history-list-pane');
-    if (!historyList) return;
-
-    // Удаляем дубликат, если слово уже есть в истории
-    const existingItems = historyList.querySelectorAll('li');
-    existingItems.forEach(item => {
-        if (item.textContent.trim().toLowerCase() === query.toLowerCase()) {
-            item.remove();
-        }
-    });
-
-    // Создаем новый элемент списка
-    const li = document.createElement('li');
-    li.textContent = query;
-
-    // Добавляем в начало списка
-    if (historyList.firstChild) {
-        historyList.insertBefore(li, historyList.firstChild);
-    } else {
-        historyList.appendChild(li);
-    }
-}
-
 async function handleClientSearch(rawQuery) {
     const query = cleanQueryParam(rawQuery);
     if (!query) return;
 
-    // Обновляем URL в адресной строке без перезагрузки
-    const newUrl = new URL(window.location);
-    newUrl.searchParams.set('q', query);
-    window.history.pushState({}, '', newUrl);
+    // Обновляем значение в инпуте, чтобы пользователь видел исправленный вариант
+    const searchBox = document.getElementById('search-box');
+    if (searchBox && searchBox.value !== query) {
+        searchBox.value = query;
+    }
 
-    // Моментально добавляем слово в панель истории
-    updateHistoryUI(query);
+    // Записываем историю в память браузера и сразу обновляем боковую колонку 
+    // с помощью родных функций из home.js
+    if (typeof addToHistory === 'function') {
+        addToHistory(query);
+    } else {
+        // Если функция недоступна, обновляем URL вручную
+        const newUrl = new URL(window.location);
+        newUrl.searchParams.set('q', query);
+        window.history.pushState({}, '', newUrl);
+    }
+    
+    if (typeof populateHistoryBody === 'function') {
+        populateHistoryBody();
+    }
 
     const resultsContainer = document.getElementById('dpd-results');
     const summaryContainer = document.getElementById('summary-results');
@@ -1304,7 +1316,9 @@ async function fetchSanskrit(query, isFallback = false) {
 
     const isRu = window.isRu;
     const headerHtml = renderSanskritHeader(isRu, query, isFallback);
-    const msgLoading = isRu ? 'Загрузка словарей... ⏳' : 'Loading dictionaries... ⏳';
+    
+    // Обернули эмодзи в span с фильтром обесцвечивания
+    const msgLoading = isRu ? 'Загрузка словарей... <span style="filter: grayscale(100%); opacity: 0.8;">⏳</span>' : 'Loading dictionaries... <span style="filter: grayscale(100%); opacity: 0.8;">⏳</span>';
     
     if (!isFallback) {
         container.innerHTML = headerHtml + `<div style="color: #666;">${msgLoading}</div>`;
@@ -1443,7 +1457,6 @@ async function fetchSanskrit(query, isFallback = false) {
     }
 }
 
-
 // ===== КЛИЕНТСКАЯ ЛОГИКА ПОИСКА (ЗАМЕНА MAIN.PY) =====
 
 const ENDPOINTS = {
@@ -1455,7 +1468,37 @@ function cleanQueryParam(original) {
     let cleaned = original.replace(/https?:\/\/\S+/g, '');
     cleaned = cleaned.replace(/["'()[\]·]/g, '');
     cleaned = cleaned.replace(/\s+/g, ' ');
-    return cleaned.trim().toLowerCase();
+    cleaned = cleaned.trim().toLowerCase();
+    
+    // Исправление неправильной раскладки для сутт (русские буквы + цифры)
+    if (/[а-яё]/.test(cleaned) && /\d/.test(cleaned)) {
+        const ruToEn = {
+            'а': 'f', 'в': 'd', 'е': 't', 'к': 'r', 'м': 'v',
+            'н': 'y', 'о': 'j', 'п': 'g', 'р': 'h', 'с': 'c',
+            'т': 'n', 'у': 'e', 'х': '[', 'ъ': ']', 'ы': 's',
+            'ь': 'm', 'э': "'", 'ё': '`', 'я': 'z', 'ж': ';',
+            'з': 'p', 'и': 'b', 'й': 'q', 'л': 'k', 'д': 'l',
+            'г': 'u', 'ф': 'a', 'ц': 'w', 'ч': 'x', 'ш': 'i',
+            'щ': 'o', 'б': ',', 'ю': '.', ' ': ' '
+        };
+        let converted = '';
+        for (let i = 0; i < cleaned.length; i++) {
+            converted += ruToEn[cleaned[i]] || cleaned[i];
+        }
+        
+        // Ограничиваем конвертацию только паттернами сутт
+        if (/^(dn|mn|sn|an|dhp|snp|ud|iti|thag|thig|vv|pv)/.test(converted)) {
+            cleaned = converted;
+        }
+    }
+    
+    // Нормализация пробелов и точек
+    cleaned = cleaned.replace(/([a-z]+)\s+(\d+)\s+(\d+)/g, "$1$2.$3")
+                     .replace(/([a-z]+)(\d+)\s+(\d+)/g, "$1$2.$3")
+                     .replace(/([a-z]+)\s+(\d+)\.(\d+)/g, "$1$2.$3")
+                     .replace(/([a-z]+)\s+(\d+)/g, "$1$2");
+
+    return cleaned;
 }
 
 async function fetchFromBackend(query, currentLang, tryFallback = true) {
