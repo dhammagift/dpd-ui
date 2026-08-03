@@ -1143,13 +1143,20 @@ document.addEventListener("DOMContentLoaded", () => {
 
     document.addEventListener('dragstart', (e) => {
         const wrapper = e.target.closest('.sanskrit-dict-wrapper');
-        // Проверяем, что атрибут был установлен именно нашим ползунком
         if (wrapper && wrapper.getAttribute('draggable') === 'true') {
             draggedDict = wrapper;
             e.dataTransfer.effectAllowed = 'move';
-            setTimeout(() => wrapper.style.opacity = '0.4', 0);
-        } else {
-            e.preventDefault(); // Блокируем случайные срабатывания
+            const header = wrapper.querySelector('.sanskrit-dict-header');
+            const label = header ? (header.querySelector('.dict-icon + *')?.textContent?.trim() || header.textContent?.trim()?.slice(0, 30)) : '...';
+            const ghost = buildDragGhost('☰ ' + label);
+            e.dataTransfer.setDragImage(ghost, ghost.offsetWidth / 2, ghost.offsetHeight / 2);
+            setTimeout(() => { ghost.remove(); wrapper.style.opacity = '0.4'; }, 0);
+            return;
+        }
+        // Не блокируем ext-slot drag
+        const extSlot = e.target.closest('[id^="ext-slot-"]');
+        if (!extSlot || extSlot.getAttribute('draggable') !== 'true') {
+            e.preventDefault();
         }
     });
 
@@ -1184,22 +1191,28 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const dpdPane = document.getElementById('dpd-pane');
     if (dpdPane) {
-        const observer = new MutationObserver(() => {
+        const observer = new MutationObserver((mutations) => {
             const dpdResults = document.getElementById('dpd-results');
-            if (dpdResults && dpdResults.dataset.stale === 'true') {
+            // Реагируем только на мутации внутри #dpd-results, не на санскрит/гандхари слоты
+            const isDpdMutation = dpdResults && mutations.some(m =>
+                m.target === dpdResults || dpdResults.contains(m.target)
+            );
+            if (!isDpdMutation) return;
+
+            if (dpdResults.dataset.stale === 'true') {
                 dpdResults.dataset.stale = 'false';
             }
-            
+
             if (waitingForFallback) {
                 const query = waitingForFallback;
                 waitingForFallback = null;
                 const fallbackWord = getDpdSanskritFallback();
-                
+
                 if (fallbackWord && fallbackWord.toLowerCase() !== query.toLowerCase()) {
                     fetchSanskrit(fallbackWord, true);
                 } else {
-                    const container = document.getElementById('sanskrit-results');
-                    if (container) showEmptyMessage(container, window.isRu, query, renderSanskritHeader(window.isRu, query, false));
+                    // DPD не нашёл Sanskrit-эквивалент — ищем пали-слово напрямую
+                    fetchSanskrit(query, true);
                 }
             }
         });
@@ -1217,17 +1230,39 @@ function saveDictOrder(parentElement) {
 }
 
 function runSanskritSearch() {
+    const extStates = JSON.parse(localStorage.getItem('extDictStates') || '{}');
+    if (extStates['sanskrit'] === true) return;
+
     const searchInput = document.getElementById('search-box');
     const query = searchInput ? searchInput.value.trim() : '';
 
     if (query && query !== lastSanskritQuery) {
         lastSanskritQuery = query;
-        waitingForFallback = null;
-        
+
         const dpdResults = document.getElementById('dpd-results');
-        if (dpdResults) dpdResults.dataset.stale = 'true';
-        
-        fetchSanskrit(query);
+        const isLoaded = dpdResults && dpdResults.dataset.stale === 'false' &&
+                         dpdResults.querySelector('h3.dpd, .dpd.summary, .button-box');
+
+        if (isLoaded) {
+            // DPD уже загружен — сразу берём Sanskrit-эквивалент
+            waitingForFallback = null;
+            const fallbackWord = getDpdSanskritFallback();
+            if (fallbackWord && fallbackWord.toLowerCase() !== query.toLowerCase()) {
+                fetchSanskrit(fallbackWord);
+            } else {
+                fetchSanskrit(query);
+            }
+        } else {
+            // Ждём загрузки DPD через MutationObserver, показываем спиннер
+            waitingForFallback = query;
+            const container = document.getElementById('sanskrit-results');
+            if (container) {
+                const msg = window.isRu
+                    ? 'Загрузка словарей... <span style="filter: grayscale(100%); opacity: 0.8;">⏳</span>'
+                    : 'Loading dictionaries... <span style="filter: grayscale(100%); opacity: 0.8;">⏳</span>';
+                container.innerHTML = `<div style="color: #666; padding: 5px;">${msg}</div>`;
+            }
+        }
     } else if (!query && lastSanskritQuery !== '') {
         lastSanskritQuery = '';
         waitingForFallback = null;
@@ -1319,50 +1354,42 @@ function showEmptyMessage(container, isRu, query, headerObj) {
 }
 
 async function fetchSanskrit(query, isFallback = false) {
+    const slot = document.getElementById('ext-slot-sanskrit');
     const toggle = document.getElementById('sanskrit-toggle');
-    let container = document.getElementById('sanskrit-results');
 
-    if (!container) {
-        const slot = document.getElementById('ext-slot-sanskrit');
-        if (!slot) return;
-
-        container = document.createElement('div');
-        container.id = 'sanskrit-results';
-        slot.appendChild(container);
-    }
+    if (!slot) return;
 
     if (toggle && !toggle.checked) {
-        container.style.display = 'none';
+        slot.style.display = 'none';
         return;
     }
 
-    container.style.display = 'block';
-    container.style.visibility = 'visible';
-    container.style.opacity = '1';
-    container.style.marginTop = '0';
-    container.style.marginBottom = '15px';
-    container.style.padding = '0';
-    container.style.border = 'none';
-    container.style.borderRadius = '0';
-    container.style.backgroundColor = 'transparent';
-    container.style.color = 'inherit';
+    const extStates = JSON.parse(localStorage.getItem('extDictStates') || '{}');
+    if (extStates['sanskrit'] === true) return;
+
+    slot.style.display = 'block';
+    slot.style.marginBottom = '15px';
+
+    let container = document.getElementById('sanskrit-results');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'sanskrit-results';
+        let contentDiv = slot.querySelector('.ext-dict-content');
+        if (!contentDiv) {
+            contentDiv = document.createElement('div');
+            contentDiv.className = 'ext-dict-content';
+            slot.appendChild(contentDiv);
+        }
+        contentDiv.appendChild(container);
+    }
 
     const isRu = window.isRu;
-    const headerObj = renderSanskritHeader(isRu, query, isFallback);
-
-    const contentStyle = `display:${headerObj.displayStyle}; max-height:600px; overflow:auto; padding:10px; border:2px solid #1a8bdb; border-radius:8px; background:rgba(26,139,219,0.05);`;
-
     const msgLoading = isRu
         ? 'Загрузка словарей... <span style="filter: grayscale(100%); opacity: 0.8;">⏳</span>'
         : 'Loading dictionaries... <span style="filter: grayscale(100%); opacity: 0.8;">⏳</span>';
 
     if (!isFallback) {
-        container.innerHTML = `
-            ${headerObj.headerHtml}
-            <div class="ext-dict-content" style="${contentStyle}">
-                <div style="color:#666;">${msgLoading}</div>
-            </div>
-        `;
+        container.innerHTML = `<div style="color: #666; padding: 5px;">${msgLoading}</div>`;
     }
 
     try {
@@ -1379,15 +1406,10 @@ async function fetchSanskrit(query, isFallback = false) {
                 const msgError = isRu
                     ? 'Произошла ошибка при обращении к словарю.'
                     : 'An error occurred while accessing the dictionary.';
-
                 container.innerHTML = `
-                    ${headerObj.headerHtml}
-                    <div class="ext-dict-content" style="${contentStyle}">
-                        <div style="color:#c08552; padding:10px; background:rgba(192,133,82,0.1); border-radius:5px;">
-                            ⚠️ ${msgError} <span style="color:#999; font-size:0.9em;">(HTTP ${response.status})</span>
-                        </div>
-                    </div>
-                `;
+                <div style="color: #c08552; padding: 10px; background: rgba(192, 133, 82, 0.1); border-radius: 5px;">
+                    ⚠️ ${msgError} <span style="color: #999; font-size: 0.9em;">(HTTP ${response.status})</span>
+                </div>`;
                 return;
             }
 
@@ -1395,28 +1417,24 @@ async function fetchSanskrit(query, isFallback = false) {
             sanskritApiCache.set(cacheKey, data);
         }
 
+        let htmlContent = '';
         let hasResults = false;
-        let innerHtml = '';
+
         const dictStates = JSON.parse(localStorage.getItem('sanskritDictStates') || '{}');
 
         if (data.dicts && Object.keys(data.dicts).length > 0) {
             const availableCodes = Object.keys(data.dicts);
-            const savedOrder = JSON.parse(localStorage.getItem('sanskritDictOrder') || '[]');
-            const nameCounts = {};
+            let savedOrder = JSON.parse(localStorage.getItem('sanskritDictOrder') || '[]');
 
+            const nameCounts = {};
             availableCodes.forEach(code => {
                 if (!data.dicts[code] || data.dicts[code].length === 0) return;
-
-                const name = (data.dictmeta && data.dictmeta[code] && data.dictmeta[code].name)
-                    ? data.dictmeta[code].name
-                    : code.toUpperCase();
-
+                const name = (data.dictmeta && data.dictmeta[code] && data.dictmeta[code].name) ? data.dictmeta[code].name : code.toUpperCase();
                 nameCounts[name] = (nameCounts[name] || 0) + 1;
             });
 
             const prefixes = ['mw', 'shs', 'ap', 'md'];
-            const defaultOrder = [];
-
+            let defaultOrder = [];
             prefixes.forEach(prefix => {
                 const matches = availableCodes.filter(code => code.startsWith(prefix)).sort();
                 defaultOrder.push(...matches);
@@ -1424,12 +1442,10 @@ async function fetchSanskrit(query, isFallback = false) {
 
             const remainingCodes = availableCodes.filter(code => !defaultOrder.includes(code)).sort();
             const baseOrder = [...defaultOrder, ...remainingCodes];
-            const finalOrder = savedOrder.filter(code => availableCodes.includes(code));
 
+            let finalOrder = savedOrder.filter(code => availableCodes.includes(code));
             baseOrder.forEach(code => {
-                if (!finalOrder.includes(code) && availableCodes.includes(code)) {
-                    finalOrder.push(code);
-                }
+                if (!finalOrder.includes(code) && availableCodes.includes(code)) finalOrder.push(code);
             });
 
             finalOrder.forEach(dictCode => {
@@ -1437,46 +1453,41 @@ async function fetchSanskrit(query, isFallback = false) {
                 if (!entries || entries.length === 0) return;
 
                 hasResults = true;
-
                 let dictName = (data.dictmeta && data.dictmeta[dictCode] && data.dictmeta[dictCode].name)
                     ? data.dictmeta[dictCode].name
                     : dictCode.toUpperCase();
 
                 if (nameCounts[dictName] > 1) {
-                    const year = (data.dictmeta && data.dictmeta[dictCode] && data.dictmeta[dictCode].year)
-                        ? data.dictmeta[dictCode].year + ', '
-                        : '';
-
-                    dictName += ` <span style="font-weight:normal; font-size:0.9em; color:#888;">(${year}${dictCode})</span>`;
+                    const year = (data.dictmeta && data.dictmeta[dictCode] && data.dictmeta[dictCode].year) ? data.dictmeta[dictCode].year + ', ' : '';
+                    dictName += ` <span style="font-weight: normal; font-size: 0.9em; color: #888;">(${year}${dictCode})</span>`;
                 }
 
                 const isCollapsed = dictStates[dictCode] === true;
                 const icon = isCollapsed ? '▶' : '▼';
                 const displayStyle = isCollapsed ? 'none' : 'block';
 
-                innerHtml += `
-                    <div class="sanskrit-dict-wrapper" data-dictcode="${dictCode}" style="margin-bottom:5px;">
-                        <div class="sanskrit-dict-header" data-dictcode="${dictCode}" style="display:flex; justify-content:space-between; font-weight:bold; margin-top:10px; margin-bottom:5px; color:#1a8bdb; cursor:pointer; user-select:none;">
+                htmlContent += `
+                    <div class="sanskrit-dict-wrapper" data-dictcode="${dictCode}" style="margin-bottom: 5px;">
+                        <div class="sanskrit-dict-header" data-dictcode="${dictCode}" style="display: flex; justify-content: space-between; font-weight: bold; margin-top: 10px; margin-bottom: 5px; color: #1a8bdb; cursor: pointer; user-select: none;">
                             <div>
                                 <span class="dict-icon" style="display:inline-block; width:18px;">${icon}</span> ${dictName}:
                             </div>
-                            <div style="min-width:75px; text-align:right; color:#999; display:flex; justify-content:flex-end; align-items:center;">
-                                <button type="button" class="dict-move-up" style="background:none; border:none; cursor:pointer; color:#999; padding:0 3px;" title="Up">↑</button>
-                                <button type="button" class="dict-move-down" style="background:none; border:none; cursor:pointer; color:#999; padding:0 3px;" title="Down">↓</button>
-                                <span class="dict-drag-handle" style="cursor:grab; margin-left:8px; color:#999; font-size:1.1em; touch-action:none;" title="Drag to reorder" onclick="event.stopPropagation();">☰</span>
+                            <div style="min-width: 75px; text-align: right; color: #999; display: flex; justify-content: flex-end; align-items: center;" onclick="event.stopPropagation();">
+                                <button class="dict-move-up" onclick="event.stopPropagation(); moveSanskritDict(this, true);" style="background:none; border:none; cursor:pointer; color:#999; padding: 0 3px;" title="Up">↑</button>
+                                <button class="dict-move-down" onclick="event.stopPropagation(); moveSanskritDict(this, false);" style="background:none; border:none; cursor:pointer; color:#999; padding: 0 3px;" title="Down">↓</button>
+                                <span class="dict-drag-handle" style="cursor: grab; margin-left: 8px; color: #999; font-size: 1.1em; touch-action: none;" title="Drag to reorder">☰</span>
                             </div>
                         </div>
-                        <div class="sanskrit-dict-content" id="sanskrit-content-${dictCode}" style="display:${displayStyle};">
-                `;
+                        <div class="sanskrit-dict-content" id="sanskrit-content-${dictCode}" style="display: ${displayStyle};">`;
 
                 entries.forEach(entry => {
                     if (entry.csl && entry.csl.html) {
                         const highlightedHtml = highlightQuery(entry.csl.html, query);
-                        innerHtml += `<div style="margin-bottom:8px; padding-left:8px; border-left:3px solid #1a8bdb;">${highlightedHtml}</div>`;
+                        htmlContent += `<div style="margin-bottom: 8px; padding-left: 8px; border-left: 3px solid #1a8bdb;">${highlightedHtml}</div>`;
                     }
                 });
 
-                innerHtml += `</div></div>`;
+                htmlContent += `</div></div>`;
             });
         }
 
@@ -1488,39 +1499,30 @@ async function fetchSanskrit(query, isFallback = false) {
                 if (isStale) {
                     waitingForFallback = query;
                     return;
-                }
-
-                const fallbackWord = getDpdSanskritFallback();
-                if (fallbackWord && fallbackWord.toLowerCase() !== query.toLowerCase()) {
-                    return fetchSanskrit(fallbackWord, true);
+                } else {
+                    const fallbackWord = getDpdSanskritFallback();
+                    if (fallbackWord && fallbackWord.toLowerCase() !== query.toLowerCase()) {
+                        return fetchSanskrit(fallbackWord, true);
+                    }
                 }
             }
-
-            showEmptyMessage(container, isRu, query, headerObj);
-            return;
+            const msgEmpty = isRu
+                ? `Санскритские параллели для «${query}» не найдены.`
+                : `No Sanskrit parallels found for "${query}".`;
+            container.innerHTML = `<div style="opacity: 0.7;">${msgEmpty}</div>`;
+        } else {
+            container.innerHTML = htmlContent;
         }
 
-        container.innerHTML = `
-            ${headerObj.headerHtml}
-            <div class="ext-dict-content" style="${contentStyle}">
-                ${innerHtml}
-            </div>
-        `;
     } catch (error) {
-        console.error('Ошибка санскрита:', error);
-
+        console.error("Ошибка санскрита:", error);
         const msgNetworkError = isRu
             ? 'Не удалось загрузить данные санскрита из-за ошибки сети.'
             : 'Failed to load Sanskrit data due to a network error.';
-
         container.innerHTML = `
-            ${headerObj.headerHtml}
-            <div class="ext-dict-content" style="${contentStyle}">
-                <div style="color:#c08552; padding:10px; background:rgba(192,133,82,0.1); border-radius:5px;">
-                    ⚠️ ${msgNetworkError} <span style="color:#999; font-size:0.9em;">(${error.message})</span>
-                </div>
-            </div>
-        `;
+        <div style="color: #c08552; padding: 10px; background: rgba(192, 133, 82, 0.1); border-radius: 5px;">
+            ⚠️ ${msgNetworkError} <span style="color: #999; font-size: 0.9em;">(${error.message})</span>
+        </div>`;
     }
 }
 
@@ -1567,518 +1569,13 @@ document.addEventListener('click', function(e) {
     localStorage.setItem('sanskritDictStates', JSON.stringify(states));
 }, true);
 
-function showEmptyMessage(container, isRu, query, headerHtml) {
-    const msgEmpty = isRu ? `Санскритские параллели для «${query}» не найдены.` : `No Sanskrit parallels found for "${query}".`;
-    container.innerHTML = headerHtml + `<div class="ext-dict-content"><div style="opacity: 0.7; padding: 5px;">${msgEmpty}</div></div>`;
-}
-
-async function fetchSanskrit(query, isFallback = false) {
-    const slot = document.getElementById('ext-slot-sanskrit');
-    const toggle = document.getElementById('sanskrit-toggle');
-    
-    if (!slot) return;
-
-    if (toggle && !toggle.checked) {
-        slot.style.display = 'none';
-        return; 
-    }
-
-    slot.style.display = 'block';
-    slot.style.marginBottom = '15px';
-
-    // Внутренний контейнер для санскрита, если его еще нет в слоте
-    let container = document.getElementById('sanskrit-results');
-    if (!container) {
-        container = document.createElement('div');
-        container.id = 'sanskrit-results';
-        slot.appendChild(container);
-    }
-
-    const isRu = window.isRu;
-    const headerHtml = renderSanskritHeader(isRu, query, isFallback);
-    const msgLoading = isRu ? 'Загрузка словарей... <span style="filter: grayscale(100%); opacity: 0.8;">⏳</span>' : 'Loading dictionaries... <span style="filter: grayscale(100%); opacity: 0.8;">⏳</span>';
-    
-    if (!isFallback) {
-        container.innerHTML = headerHtml + `<div class="ext-dict-content"><div style="color: #666; padding: 5px;">${msgLoading}</div></div>`;
-    }
-
-    try {
-        const cacheKey = query.trim().toLowerCase();
-        let data;
-
-        if (sanskritApiCache.has(cacheKey)) {
-            data = sanskritApiCache.get(cacheKey);
-        } else {
-            const url = `https://www.sanskrit-lexicon.uni-koeln.de/scans/awork/apidev/api1/salt_multidict.php?key=${encodeURIComponent(query)}&input=roman&output=roman`;
-            const response = await fetch(url);
-            
-            if (!response.ok) {
-                const msgError = isRu ? 'Произошла ошибка при обращении к словарю.' : 'An error occurred while accessing the dictionary.';
-                container.innerHTML = headerHtml + `
-                <div class="ext-dict-content">
-                    <div style="color: #c08552; padding: 10px; background: rgba(192, 133, 82, 0.1); border-radius: 5px;">
-                        ⚠️ ${msgError} <span style="color: #999; font-size: 0.9em;">(HTTP ${response.status})</span>
-                    </div>
-                </div>`;
-                return;
-            }
-
-            data = await response.json();
-            sanskritApiCache.set(cacheKey, data);
-        }
-
-        let htmlContent = headerHtml + '<div class="ext-dict-content" style="padding: 5px 0;">';
-        let hasResults = false;
-        
-        const dictStates = JSON.parse(localStorage.getItem('sanskritDictStates') || '{}');
-        
-        if (data.dicts && Object.keys(data.dicts).length > 0) {
-            const availableCodes = Object.keys(data.dicts);
-            let savedOrder = JSON.parse(localStorage.getItem('sanskritDictOrder') || '[]');
-            
-            const nameCounts = {};
-            availableCodes.forEach(code => {
-                if (!data.dicts[code] || data.dicts[code].length === 0) return;
-                const name = (data.dictmeta && data.dictmeta[code] && data.dictmeta[code].name) ? data.dictmeta[code].name : code.toUpperCase();
-                nameCounts[name] = (nameCounts[name] || 0) + 1;
-            });
-
-            const prefixes = ['mw', 'shs', 'ap', 'md'];
-            let defaultOrder = [];
-            
-            prefixes.forEach(prefix => {
-                const matches = availableCodes.filter(code => code.startsWith(prefix)).sort();
-                defaultOrder.push(...matches);
-            });
-
-            const remainingCodes = availableCodes.filter(code => !defaultOrder.includes(code)).sort();
-            const baseOrder = [...defaultOrder, ...remainingCodes];
-
-            let finalOrder = savedOrder.filter(code => availableCodes.includes(code));
-            baseOrder.forEach(code => {
-                if (!finalOrder.includes(code) && availableCodes.includes(code)) {
-                    finalOrder.push(code);
-                }
-            });
-
-            finalOrder.forEach(dictCode => {
-                const entries = data.dicts[dictCode];
-                if (!entries || entries.length === 0) return;
-
-                hasResults = true;
-                let dictName = (data.dictmeta && data.dictmeta[dictCode] && data.dictmeta[dictCode].name) 
-                    ? data.dictmeta[dictCode].name 
-                    : dictCode.toUpperCase();
-                
-                if (nameCounts[dictName] > 1) {
-                    const year = (data.dictmeta && data.dictmeta[dictCode] && data.dictmeta[dictCode].year) ? data.dictmeta[dictCode].year + ', ' : '';
-                    dictName += ` <span style="font-weight: normal; font-size: 0.9em; color: #888;">(${year}${dictCode})</span>`;
-                }
-                
-                const isCollapsed = dictStates[dictCode] === true;
-                const icon = isCollapsed ? '▶' : '▼';
-                const displayStyle = isCollapsed ? 'none' : 'block';
-
-                htmlContent += `
-                    <div class="sanskrit-dict-wrapper" data-dictcode="${dictCode}" style="margin-bottom: 5px;">
-                        <div class="sanskrit-dict-header" data-dictcode="${dictCode}" style="display: flex; justify-content: space-between; font-weight: bold; margin-top: 10px; margin-bottom: 5px; color: #1a8bdb; cursor: pointer; user-select: none;">
-                            <div>
-                                <span class="dict-icon" style="display:inline-block; width:18px;">${icon}</span> ${dictName}:
-                            </div>
-                            <div style="min-width: 75px; text-align: right; color: #999; display: flex; justify-content: flex-end; align-items: center;" onclick="event.stopPropagation();">
-                                <button class="dict-move-up" style="background:none; border:none; cursor:pointer; color:#999; padding: 0 3px;" title="Up">↑</button>
-                                <button class="dict-move-down" style="background:none; border:none; cursor:pointer; color:#999; padding: 0 3px;" title="Down">↓</button>
-                                <span class="dict-drag-handle" style="cursor: grab; margin-left: 8px; color: #999; font-size: 1.1em; touch-action: none;" title="Drag to reorder">☰</span>
-                            </div>
-                        </div>
-                        <div class="sanskrit-dict-content" id="sanskrit-content-${dictCode}" style="display: ${displayStyle};">`;
-                
-                entries.forEach(entry => {
-                    if (entry.csl && entry.csl.html) {
-                        const highlightedHtml = highlightQuery(entry.csl.html, query);
-                        htmlContent += `<div style="margin-bottom: 8px; padding-left: 8px; border-left: 3px solid #1a8bdb;">${highlightedHtml}</div>`;
-                    }
-                });
-                
-                htmlContent += `</div></div>`;
-            });
-        }
-
-        if (!hasResults) {
-            if (!isFallback) {
-                const dpdResults = document.getElementById('dpd-results');
-                const isStale = dpdResults ? dpdResults.dataset.stale === 'true' : false;
-                
-                if (isStale) {
-                    waitingForFallback = query;
-                    return;
-                } else {
-                    const fallbackWord = getDpdSanskritFallback();
-                    if (fallbackWord && fallbackWord.toLowerCase() !== query.toLowerCase()) {
-                        return fetchSanskrit(fallbackWord, true);
-                    }
-                }
-            }
-            
-            showEmptyMessage(container, isRu, query, headerHtml);
-        } else {
-            htmlContent += '</div>';
-            container.innerHTML = htmlContent;
-        }
-
-    } catch (error) {
-        console.error("Ошибка санскрита:", error);
-        const msgNetworkError = isRu ? 'Не удалось загрузить данные санскрита из-за ошибки сети.' : 'Failed to load Sanskrit data due to a network error.';
-        container.innerHTML = headerHtml + `
-        <div class="ext-dict-content">
-            <div style="color: #c08552; padding: 10px; background: rgba(192, 133, 82, 0.1); border-radius: 5px;">
-                ⚠️ ${msgNetworkError} <span style="color: #999; font-size: 0.9em;">(${error.message})</span>
-            </div>
-        </div>`;
-    }
-}
 
 function showEmptyMessage(container, isRu, query, headerHtml) {
     const msgEmpty = isRu ? `Санскритские параллели для «${query}» не найдены.` : `No Sanskrit parallels found for "${query}".`;
     container.innerHTML = headerHtml + `<div class="ext-dict-content"><div style="opacity: 0.7;">${msgEmpty}</div></div>`;
 }
 
-async function fetchSanskrit(query, isFallback = false) {
-    const container = document.getElementById('sanskrit-results');
-    const toggle = document.getElementById('sanskrit-toggle');
-    
-    if (!container) return;
-
-    if (toggle && !toggle.checked) {
-        container.style.display = 'none';
-        return; 
-    }
-
-    container.style.display = 'block';
-    container.style.visibility = 'visible';
-    container.style.opacity = '1';
-    container.style.marginTop = '15px';
-    container.style.padding = '12px';
-    container.style.border = '2px solid #1a8bdb';
-    container.style.borderRadius = '8px';
-    container.style.backgroundColor = 'rgba(26, 139, 219, 0.05)';
-    container.style.color = 'inherit';
-
-    const isRu = window.isRu;
-    const headerHtml = renderSanskritHeader(isRu, query, isFallback);
-    
-    const msgLoading = isRu ? 'Загрузка словарей... <span style="filter: grayscale(100%); opacity: 0.8;">⏳</span>' : 'Loading dictionaries... <span style="filter: grayscale(100%); opacity: 0.8;">⏳</span>';
-    
-    if (!isFallback) {
-        container.innerHTML = headerHtml + `<div class="ext-dict-content"><div style="color: #666;">${msgLoading}</div></div>`;
-    }
-
-    try {
-        const cacheKey = query.trim().toLowerCase();
-        let data;
-
-        if (sanskritApiCache.has(cacheKey)) {
-            data = sanskritApiCache.get(cacheKey);
-        } else {
-            const url = `https://www.sanskrit-lexicon.uni-koeln.de/scans/awork/apidev/api1/salt_multidict.php?key=${encodeURIComponent(query)}&input=roman&output=roman`;
-            const response = await fetch(url);
-            
-            if (!response.ok) {
-                const msgError = isRu ? 'Произошла ошибка при обращении к словарю.' : 'An error occurred while accessing the dictionary.';
-                container.innerHTML = headerHtml + `
-                <div class="ext-dict-content">
-                    <div style="color: #c08552; padding: 10px; background: rgba(192, 133, 82, 0.1); border-radius: 5px;">
-                        ⚠️ ${msgError} <span style="color: #999; font-size: 0.9em;">(HTTP ${response.status})</span>
-                    </div>
-                </div>`;
-                return;
-            }
-
-            data = await response.json();
-            sanskritApiCache.set(cacheKey, data);
-        }
-
-        let htmlContent = headerHtml + '<div class="ext-dict-content">';
-        let hasResults = false;
-        
-        const dictStates = JSON.parse(localStorage.getItem('sanskritDictStates') || '{}');
-        
-        if (data.dicts && Object.keys(data.dicts).length > 0) {
-            const availableCodes = Object.keys(data.dicts);
-            let savedOrder = JSON.parse(localStorage.getItem('sanskritDictOrder') || '[]');
-            
-            const nameCounts = {};
-            availableCodes.forEach(code => {
-                if (!data.dicts[code] || data.dicts[code].length === 0) return;
-                const name = (data.dictmeta && data.dictmeta[code] && data.dictmeta[code].name) ? data.dictmeta[code].name : code.toUpperCase();
-                nameCounts[name] = (nameCounts[name] || 0) + 1;
-            });
-
-            const prefixes = ['mw', 'shs', 'ap', 'md'];
-            let defaultOrder = [];
-            
-            prefixes.forEach(prefix => {
-                const matches = availableCodes.filter(code => code.startsWith(prefix)).sort();
-                defaultOrder.push(...matches);
-            });
-
-            const remainingCodes = availableCodes.filter(code => !defaultOrder.includes(code)).sort();
-            const baseOrder = [...defaultOrder, ...remainingCodes];
-
-            let finalOrder = savedOrder.filter(code => availableCodes.includes(code));
-            baseOrder.forEach(code => {
-                if (!finalOrder.includes(code) && availableCodes.includes(code)) {
-                    finalOrder.push(code);
-                }
-            });
-
-            finalOrder.forEach(dictCode => {
-                const entries = data.dicts[dictCode];
-                if (!entries || entries.length === 0) return;
-
-                hasResults = true;
-                let dictName = (data.dictmeta && data.dictmeta[dictCode] && data.dictmeta[dictCode].name) 
-                    ? data.dictmeta[dictCode].name 
-                    : dictCode.toUpperCase();
-                
-                if (nameCounts[dictName] > 1) {
-                    const year = (data.dictmeta && data.dictmeta[dictCode] && data.dictmeta[dictCode].year) ? data.dictmeta[dictCode].year + ', ' : '';
-                    dictName += ` <span style="font-weight: normal; font-size: 0.9em; color: #888;">(${year}${dictCode})</span>`;
-                }
-                
-                const isCollapsed = dictStates[dictCode] === true;
-                const icon = isCollapsed ? '▶' : '▼';
-                const displayStyle = isCollapsed ? 'none' : 'block';
-
-                htmlContent += `
-                    <div class="sanskrit-dict-wrapper" data-dictcode="${dictCode}" style="margin-bottom: 5px;">
-                        <div class="sanskrit-dict-header" data-dictcode="${dictCode}" style="display: flex; justify-content: space-between; font-weight: bold; margin-top: 10px; margin-bottom: 5px; color: #1a8bdb; cursor: pointer; user-select: none;">
-                            <div>
-                                <span class="dict-icon" style="display:inline-block; width:18px;">${icon}</span> ${dictName}:
-                            </div>
-                            <div style="min-width: 75px; text-align: right; color: #999; display: flex; justify-content: flex-end; align-items: center;" onclick="event.stopPropagation();">
-                                <button class="dict-move-up" style="background:none; border:none; cursor:pointer; color:#999; padding: 0 3px;" title="Up">↑</button>
-                                <button class="dict-move-down" style="background:none; border:none; cursor:pointer; color:#999; padding: 0 3px;" title="Down">↓</button>
-                                <span class="dict-drag-handle" style="cursor: grab; margin-left: 8px; color: #999; font-size: 1.1em; touch-action: none;" title="Drag to reorder">☰</span>
-                            </div>
-                        </div>
-                        <div class="sanskrit-dict-content" id="sanskrit-content-${dictCode}" style="display: ${displayStyle};">`;
-                
-                entries.forEach(entry => {
-                    if (entry.csl && entry.csl.html) {
-                        const highlightedHtml = highlightQuery(entry.csl.html, query);
-                        htmlContent += `<div style="margin-bottom: 8px; padding-left: 8px; border-left: 3px solid #1a8bdb;">${highlightedHtml}</div>`;
-                    }
-                });
-                
-                htmlContent += `</div></div>`;
-            });
-        }
-
-        if (!hasResults) {
-            if (!isFallback) {
-                const dpdResults = document.getElementById('dpd-results');
-                const isStale = dpdResults ? dpdResults.dataset.stale === 'true' : false;
-                
-                if (isStale) {
-                    waitingForFallback = query;
-                    return;
-                } else {
-                    const fallbackWord = getDpdSanskritFallback();
-                    if (fallbackWord && fallbackWord.toLowerCase() !== query.toLowerCase()) {
-                        return fetchSanskrit(fallbackWord, true);
-                    }
-                }
-            }
-            
-            showEmptyMessage(container, isRu, query, headerHtml);
-        } else {
-            htmlContent += '</div>';
-            container.innerHTML = htmlContent;
-        }
-
-    } catch (error) {
-        console.error("Ошибка санскрита:", error);
-        const msgNetworkError = isRu ? 'Не удалось загрузить данные санскрита из-за ошибки сети.' : 'Failed to load Sanskrit data due to a network error.';
-        container.innerHTML = headerHtml + `
-        <div class="ext-dict-content">
-            <div style="color: #c08552; padding: 10px; background: rgba(192, 133, 82, 0.1); border-radius: 5px;">
-                ⚠️ ${msgNetworkError} <span style="color: #999; font-size: 0.9em;">(${error.message})</span>
-            </div>
-        </div>`;
-    }
-}
-
-function showEmptyMessage(container, isRu, query, headerHtml) {
-    const msgEmpty = isRu ? `Санскритские параллели для «${query}» не найдены.` : `No Sanskrit parallels found for "${query}".`;
-    container.innerHTML = headerHtml + `<div style="opacity: 0.7;">${msgEmpty}</div>`;
-}
-
 const sanskritApiCache = new Map();
-
-async function fetchSanskrit(query, isFallback = false) {
-    const container = document.getElementById('sanskrit-results');
-    const toggle = document.getElementById('sanskrit-toggle');
-    
-    if (!container) return;
-
-    if (toggle && !toggle.checked) {
-        container.style.display = 'none';
-        return; 
-    }
-
-    container.style.display = 'block';
-    container.style.visibility = 'visible';
-    container.style.opacity = '1';
-    container.style.marginTop = '15px';
-    container.style.padding = '12px';
-    container.style.border = '2px solid #1a8bdb';
-    container.style.borderRadius = '8px';
-    container.style.backgroundColor = 'rgba(26, 139, 219, 0.05)';
-    container.style.color = 'inherit';
-
-    const isRu = window.isRu;
-    const headerHtml = renderSanskritHeader(isRu, query, isFallback);
-    
-    // Обернули эмодзи в span с фильтром обесцвечивания
-    const msgLoading = isRu ? 'Загрузка словарей... <span style="filter: grayscale(100%); opacity: 0.8;">⏳</span>' : 'Loading dictionaries... <span style="filter: grayscale(100%); opacity: 0.8;">⏳</span>';
-    
-    if (!isFallback) {
-        container.innerHTML = headerHtml + `<div style="color: #666;">${msgLoading}</div>`;
-    }
-
-    try {
-        const cacheKey = query.trim().toLowerCase();
-        let data;
-
-        // Проверяем наличие ответа в кэше
-        if (sanskritApiCache.has(cacheKey)) {
-            data = sanskritApiCache.get(cacheKey);
-        } else {
-            const url = `https://www.sanskrit-lexicon.uni-koeln.de/scans/awork/apidev/api1/salt_multidict.php?key=${encodeURIComponent(query)}&input=roman&output=roman`;
-            const response = await fetch(url);
-            
-            if (!response.ok) {
-                const msgError = isRu ? 'Произошла ошибка при обращении к словарю.' : 'An error occurred while accessing the dictionary.';
-                container.innerHTML = headerHtml + `
-                <div style="color: #c08552; padding: 10px; background: rgba(192, 133, 82, 0.1); border-radius: 5px;">
-                    ⚠️ ${msgError} <span style="color: #999; font-size: 0.9em;">(HTTP ${response.status})</span>
-                </div>`;
-                return;
-            }
-
-            data = await response.json();
-            // Сохраняем успешный ответ в кэш
-            sanskritApiCache.set(cacheKey, data);
-        }
-
-        let htmlContent = headerHtml;
-        let hasResults = false;
-        
-        const dictStates = JSON.parse(localStorage.getItem('sanskritDictStates') || '{}');
-        
-        if (data.dicts && Object.keys(data.dicts).length > 0) {
-            const availableCodes = Object.keys(data.dicts);
-            let savedOrder = JSON.parse(localStorage.getItem('sanskritDictOrder') || '[]');
-            
-            const nameCounts = {};
-            availableCodes.forEach(code => {
-                if (!data.dicts[code] || data.dicts[code].length === 0) return;
-                const name = (data.dictmeta && data.dictmeta[code] && data.dictmeta[code].name) ? data.dictmeta[code].name : code.toUpperCase();
-                nameCounts[name] = (nameCounts[name] || 0) + 1;
-            });
-
-            const prefixes = ['mw', 'shs', 'ap', 'md'];
-            let defaultOrder = [];
-            
-            prefixes.forEach(prefix => {
-                const matches = availableCodes.filter(code => code.startsWith(prefix)).sort();
-                defaultOrder.push(...matches);
-            });
-
-            const remainingCodes = availableCodes.filter(code => !defaultOrder.includes(code)).sort();
-            const baseOrder = [...defaultOrder, ...remainingCodes];
-
-            let finalOrder = savedOrder.filter(code => availableCodes.includes(code));
-            baseOrder.forEach(code => {
-                if (!finalOrder.includes(code) && availableCodes.includes(code)) {
-                    finalOrder.push(code);
-                }
-            });
-
-            finalOrder.forEach(dictCode => {
-                const entries = data.dicts[dictCode];
-                if (!entries || entries.length === 0) return;
-
-                hasResults = true;
-                let dictName = (data.dictmeta && data.dictmeta[dictCode] && data.dictmeta[dictCode].name) 
-                    ? data.dictmeta[dictCode].name 
-                    : dictCode.toUpperCase();
-                
-                if (nameCounts[dictName] > 1) {
-                    const year = (data.dictmeta && data.dictmeta[dictCode] && data.dictmeta[dictCode].year) ? data.dictmeta[dictCode].year + ', ' : '';
-                    dictName += ` <span style="font-weight: normal; font-size: 0.9em; color: #888;">(${year}${dictCode})</span>`;
-                }
-                
-                const isCollapsed = dictStates[dictCode] === true;
-                const icon = isCollapsed ? '▶' : '▼';
-                const displayStyle = isCollapsed ? 'none' : 'block';
-
-                htmlContent += `
-                    <div class="sanskrit-dict-wrapper" data-dictcode="${dictCode}" style="margin-bottom: 5px;">
-                        <div class="sanskrit-dict-header" data-dictcode="${dictCode}" style="display: flex; justify-content: space-between; font-weight: bold; margin-top: 10px; margin-bottom: 5px; color: #1a8bdb; cursor: pointer; user-select: none;">
-                            <div>
-                                <span class="dict-icon" style="display:inline-block; width:18px;">${icon}</span> ${dictName}:
-                            </div>
-                            <div style="min-width: 75px; text-align: right; color: #999; display: flex; justify-content: flex-end; align-items: center;">
-                                <button class="dict-move-up" style="background:none; border:none; cursor:pointer; color:#999; padding: 0 3px;" title="Up">↑</button>
-                                <button class="dict-move-down" style="background:none; border:none; cursor:pointer; color:#999; padding: 0 3px;" title="Down">↓</button>
-                                <span class="dict-drag-handle" style="cursor: grab; margin-left: 8px; color: #999; font-size: 1.1em; touch-action: none;" title="Drag to reorder">☰</span>
-                            </div>
-                        </div>
-                        <div class="sanskrit-dict-content" id="sanskrit-content-${dictCode}" style="display: ${displayStyle};">`;
-                
-                entries.forEach(entry => {
-                    if (entry.csl && entry.csl.html) {
-                        const highlightedHtml = highlightQuery(entry.csl.html, query);
-                        htmlContent += `<div style="margin-bottom: 8px; padding-left: 8px; border-left: 3px solid #1a8bdb;">${highlightedHtml}</div>`;
-                    }
-                });
-                
-                htmlContent += `</div></div>`;
-            });
-        }
-
-        if (!hasResults) {
-            if (!isFallback) {
-                const dpdResults = document.getElementById('dpd-results');
-                const isStale = dpdResults ? dpdResults.dataset.stale === 'true' : false;
-                
-                if (isStale) {
-                    waitingForFallback = query;
-                    return;
-                } else {
-                    const fallbackWord = getDpdSanskritFallback();
-                    if (fallbackWord && fallbackWord.toLowerCase() !== query.toLowerCase()) {
-                        return fetchSanskrit(fallbackWord, true);
-                    }
-                }
-            }
-            
-            showEmptyMessage(container, isRu, query, headerHtml);
-        } else {
-            container.innerHTML = htmlContent;
-        }
-
-    } catch (error) {
-        console.error("Ошибка санскрита:", error);
-        const msgNetworkError = isRu ? 'Не удалось загрузить данные санскрита из-за ошибки сети.' : 'Failed to load Sanskrit data due to a network error.';
-        container.innerHTML = headerHtml + `
-        <div style="color: #c08552; padding: 10px; background: rgba(192, 133, 82, 0.1); border-radius: 5px;">
-            ⚠️ ${msgNetworkError} <span style="color: #999; font-size: 0.9em;">(${error.message})</span>
-        </div>`;
-    }
-}
 
 // ===== КЛИЕНТСКАЯ ЛОГИКА ПОИСКА (ЗАМЕНА MAIN.PY) =====
 
@@ -2269,7 +1766,6 @@ function loadExternalDictionaries(query) {
     const dpdPane = document.getElementById('dpd-pane');
     if (!dpdPane) return;
 
-    // Ищем или создаем единый контейнер
     let extContainer = document.getElementById('external-dicts-container');
     if (!extContainer) {
         extContainer = document.createElement('div');
@@ -2280,38 +1776,120 @@ function loadExternalDictionaries(query) {
     if (!query) {
         extContainer.style.display = 'none';
         extContainer.innerHTML = '';
-        if (typeof lastSanskritQuery !== 'undefined') {
-            lastSanskritQuery = '';
-        }
+        if (typeof lastSanskritQuery !== 'undefined') lastSanskritQuery = '';
         return;
     }
 
-    // Подготовка контейнера к новому поиску
     extContainer.style.display = 'block';
     extContainer.innerHTML = '';
 
-    // 1. Создаем слоты для словарей в заданном порядке
-    EXTERNAL_DICTS_ORDER.forEach(dictName => {
+    // Respect saved slot order, fallback to default
+    const savedSlotOrder = JSON.parse(localStorage.getItem('extDictsOrder') || '[]');
+    let finalSlotOrder = savedSlotOrder.filter(d => EXTERNAL_DICTS_ORDER.includes(d));
+    EXTERNAL_DICTS_ORDER.forEach(d => { if (!finalSlotOrder.includes(d)) finalSlotOrder.push(d); });
+
+    finalSlotOrder.forEach(dictName => {
         const slot = document.createElement('div');
         slot.id = `ext-slot-${dictName}`;
         extContainer.appendChild(slot);
     });
 
-    // 2. Инициализация Санскрита в его выделенном слоте
+    // Set up Sanskrit slot: header once + content wrapper
     const sanskritSlot = document.getElementById('ext-slot-sanskrit');
     if (sanskritSlot) {
-        let sanskritContainer = document.createElement('div');
-        sanskritContainer.id = 'sanskrit-results';
-        sanskritSlot.appendChild(sanskritContainer);
+        const extStates = JSON.parse(localStorage.getItem('extDictStates') || '{}');
+        const isSanskritCollapsed = extStates['sanskrit'] === true;
 
-        if (typeof runSanskritSearch === 'function') {
-            // Принудительно сбрасываем кэш последнего запроса для корректной отработки
-            if (typeof lastSanskritQuery !== 'undefined') {
-                lastSanskritQuery = ''; 
-            }
+        const toggleAllBtn = `<button id="sanskrit-toggle-all" style="background:none; border:none; color:#999; font-size: 1.1em; font-weight:bold; cursor:pointer;" title="${window.isRu ? 'Свернуть/развернуть все словари' : 'Toggle all dictionaries'}">+/-</button>`;
+        const headerObj = renderExtDictHeader(
+            'sanskrit',
+            window.isRu ? 'Санскрит' : 'Sanskrit',
+            'https://www.sanskrit-lexicon.uni-koeln.de/',
+            toggleAllBtn
+        );
+
+        const contentDiv = document.createElement('div');
+        contentDiv.className = 'ext-dict-content';
+        contentDiv.style.display = headerObj.displayStyle;
+
+        const sanskritResults = document.createElement('div');
+        sanskritResults.id = 'sanskrit-results';
+        contentDiv.appendChild(sanskritResults);
+
+        sanskritSlot.innerHTML = headerObj.headerHtml;
+        sanskritSlot.appendChild(contentDiv);
+
+        if (!isSanskritCollapsed) {
+            if (typeof lastSanskritQuery !== 'undefined') lastSanskritQuery = '';
             runSanskritSearch();
         }
     }
+
+    initExtSlotDragDrop(extContainer);
+}
+
+function initExtSlotDragDrop(container) {
+    let draggedSlot = null;
+
+    container.addEventListener('mousedown', (e) => {
+        const handle = e.target.closest('.ext-dict-drag-handle');
+        if (handle) {
+            const slot = handle.closest('[id^="ext-slot-"]');
+            if (slot) slot.setAttribute('draggable', 'true');
+        }
+    });
+
+    container.addEventListener('touchstart', (e) => {
+        const handle = e.target.closest('.ext-dict-drag-handle');
+        if (handle) {
+            const slot = handle.closest('[id^="ext-slot-"]');
+            if (slot) slot.setAttribute('draggable', 'true');
+        }
+    }, { passive: true });
+
+    const removeSlotDraggable = () => {
+        container.querySelectorAll('[id^="ext-slot-"]').forEach(s => s.removeAttribute('draggable'));
+    };
+    container.addEventListener('mouseup', removeSlotDraggable);
+    container.addEventListener('touchend', removeSlotDraggable);
+
+    container.addEventListener('dragstart', (e) => {
+        const slot = e.target.closest('[id^="ext-slot-"]');
+        if (slot && slot.getAttribute('draggable') === 'true') {
+            draggedSlot = slot;
+            e.dataTransfer.effectAllowed = 'move';
+            const header = slot.querySelector('.ext-dict-header');
+            const label = header ? (header.querySelector('span[style*="font-weight"]')?.textContent?.trim() || '...') : '...';
+            const ghost = buildDragGhost('☰ ' + label);
+            e.dataTransfer.setDragImage(ghost, ghost.offsetWidth / 2, ghost.offsetHeight / 2);
+            setTimeout(() => { ghost.remove(); slot.style.opacity = '0.4'; }, 0);
+        }
+        // Не блокируем — внутренний drag санскрита (.dict-drag-handle) пусть идёт дальше
+    });
+
+    container.addEventListener('dragover', (e) => {
+        if (!draggedSlot) return;
+        e.preventDefault();
+        const overSlot = e.target.closest('[id^="ext-slot-"]');
+        if (overSlot && overSlot !== draggedSlot) {
+            const rect = overSlot.getBoundingClientRect();
+            // Используем небольшой порог (60px ≈ высота заголовка), а не половину высоты блока
+            const insertAfter = (e.clientY - rect.top) > Math.min(60, rect.height / 3);
+            container.insertBefore(draggedSlot, insertAfter ? overSlot.nextSibling : overSlot);
+        }
+    });
+
+    container.addEventListener('dragend', () => {
+        if (draggedSlot) {
+            draggedSlot.style.opacity = '1';
+            draggedSlot.removeAttribute('draggable');
+            const newOrder = Array.from(container.querySelectorAll('[id^="ext-slot-"]'))
+                .map(s => s.id.replace('ext-slot-', ''));
+            localStorage.setItem('extDictsOrder', JSON.stringify(newOrder));
+            draggedSlot = null;
+        }
+        removeSlotDraggable();
+    });
 }
 // Модуль словаря Gandhari
 function appendGandhari(query) {
@@ -2320,14 +1898,15 @@ function appendGandhari(query) {
 
     const targetUrl = `https://gandhari.org/dictionary?section=dop&search=${encodeURIComponent(query)}`;
     const headerObj = renderExtDictHeader('gandhari', 'Gandhari Dictionary', targetUrl);
-    
+    const iframeSrc = headerObj.displayStyle === 'none' ? `data-src="${targetUrl}"` : `src="${targetUrl}"`;
+
     slot.style.cssText = "margin-bottom: 15px; margin-top: 15px;";
     slot.innerHTML = `
         ${headerObj.headerHtml}
         <div class="ext-dict-content" style="max-height: 450px; overflow: auto; display: ${headerObj.displayStyle};">
-            <iframe 
-                src="${targetUrl}" 
-                style="width: 100%; height: 450px; border: 2px solid #1a8bdb; border-radius: 8px; background-color: #fff;" 
+            <iframe
+                ${iframeSrc}
+                style="width: 100%; height: 450px; border: 2px solid #1a8bdb; border-radius: 8px; background-color: #fff;"
                 sandbox="allow-scripts allow-same-origin"
                 title="Gandhari Dictionary">
             </iframe>
@@ -2342,14 +1921,15 @@ function appendPts(query) {
 
     const targetUrl = `https://dsal.uchicago.edu/cgi-bin/app/pali_query.py?matchtype=default&qs=${encodeURIComponent(query)}`;
     const headerObj = renderExtDictHeader('pts', 'PTS Dictionary', targetUrl);
-    
+    const iframeSrc = headerObj.displayStyle === 'none' ? `data-src="${targetUrl}"` : `src="${targetUrl}"`;
+
     slot.style.cssText = "margin-bottom: 15px;";
     slot.innerHTML = `
         ${headerObj.headerHtml}
         <div class="ext-dict-content" style="max-height: 450px; overflow: auto; display: ${headerObj.displayStyle};">
-            <iframe 
-                src="${targetUrl}" 
-                style="width: 100%; height: 450px; border: 2px solid #1a8bdb; border-radius: 8px; background-color: #fff;" 
+            <iframe
+                ${iframeSrc}
+                style="width: 100%; height: 450px; border: 2px solid #1a8bdb; border-radius: 8px; background-color: #fff;"
                 sandbox="allow-scripts allow-same-origin"
                 title="PTS Dictionary">
             </iframe>
@@ -2359,21 +1939,35 @@ function appendPts(query) {
 
 // Обработчик сворачивания целых блоков внешних словарей с сохранением состояния
 document.addEventListener('click', (e) => {
+    if (e.target.closest('.ext-dict-drag-handle')) return;
+
     const header = e.target.closest('.ext-dict-header');
     if (header) {
         const dictCode = header.dataset.dictcode;
         const content = header.parentNode.querySelector('.ext-dict-content');
         const icon = header.querySelector('.ext-dict-toggle-icon');
-        
+
         if (content && icon) {
             const isHidden = content.style.display === 'none';
             content.style.display = isHidden ? 'block' : 'none';
             icon.textContent = isHidden ? '▼' : '▶';
-            
+
             if (dictCode) {
                 let states = JSON.parse(localStorage.getItem('extDictStates') || '{}');
-                states[dictCode] = !isHidden; 
+                states[dictCode] = !isHidden;
                 localStorage.setItem('extDictStates', JSON.stringify(states));
+            }
+
+            // Lazy load on expand
+            if (isHidden) {
+                content.querySelectorAll('iframe[data-src]').forEach(iframe => {
+                    iframe.src = iframe.dataset.src;
+                    iframe.removeAttribute('data-src');
+                });
+                if (dictCode === 'sanskrit') {
+                    if (typeof lastSanskritQuery !== 'undefined') lastSanskritQuery = '';
+                    if (typeof runSanskritSearch === 'function') runSanskritSearch();
+                }
             }
         }
     }
@@ -2401,12 +1995,16 @@ function getUiText(key) {
 function renderExtDictHeader(dictCode, title, targetUrl, extraRightHtml = '') {
     const openText = getUiText('openInNewTab');
     const linkHtml = targetUrl ? `<a href="${targetUrl}" target="_blank" style="font-size: 0.8em; color: #1a8bdb; text-decoration: none;" onclick="event.stopPropagation();">${openText}</a>` : '';
-    
+
     const states = JSON.parse(localStorage.getItem('extDictStates') || '{}');
     const isCollapsed = states[dictCode] === true;
     const icon = isCollapsed ? '▶' : '▼';
     const displayStyle = isCollapsed ? 'none' : 'block';
-    
+
+    const moveButtons = `
+        <button class="ext-dict-move-up" onclick="event.stopPropagation(); moveExtSlot(this, true);" style="background:none; border:none; cursor:pointer; color:#999; padding: 0 2px;" title="Move up">↑</button>
+        <button class="ext-dict-move-down" onclick="event.stopPropagation(); moveExtSlot(this, false);" style="background:none; border:none; cursor:pointer; color:#999; padding: 0 2px;" title="Move down">↓</button>`;
+
     return {
         headerHtml: `
             <div class="ext-dict-header" data-dictcode="${dictCode}" style="display: flex; justify-content: space-between; align-items: center; font-size: 1.2em; margin-bottom: 10px; color: #1a8bdb; border-bottom: 1px solid rgba(26, 139, 219, 0.3); padding-bottom: 5px; cursor: pointer; user-select: none;">
@@ -2417,8 +2015,45 @@ function renderExtDictHeader(dictCode, title, targetUrl, extraRightHtml = '') {
                 <div style="display: flex; align-items: center; gap: 10px;" onclick="event.stopPropagation();">
                     ${extraRightHtml}
                     ${linkHtml}
+                    ${moveButtons}
+                    <span class="ext-dict-drag-handle" style="cursor: grab; color: #999; font-size: 1.1em; touch-action: none;" title="Drag to reorder">☰</span>
                 </div>
             </div>`,
         displayStyle: displayStyle
     };
+}
+
+function buildDragGhost(text) {
+    const ghost = document.createElement('div');
+    ghost.textContent = text.slice(0, 40);
+    ghost.style.cssText = 'position:fixed;top:-200px;left:-200px;padding:6px 14px;background:#1a8bdb;color:#fff;border-radius:6px;font-size:0.95em;white-space:nowrap;pointer-events:none;z-index:9999;';
+    document.body.appendChild(ghost);
+    void ghost.offsetWidth; // force layout to get dimensions
+    return ghost;
+}
+
+function moveExtSlot(btn, isUp) {
+    const slot = btn.closest('[id^="ext-slot-"]');
+    if (!slot) return;
+    const container = slot.parentNode;
+    if (isUp && slot.previousElementSibling) {
+        container.insertBefore(slot, slot.previousElementSibling);
+    } else if (!isUp && slot.nextElementSibling) {
+        container.insertBefore(slot.nextElementSibling, slot);
+    }
+    const newOrder = Array.from(container.querySelectorAll('[id^="ext-slot-"]'))
+        .map(s => s.id.replace('ext-slot-', ''));
+    localStorage.setItem('extDictsOrder', JSON.stringify(newOrder));
+}
+
+function moveSanskritDict(btn, isUp) {
+    const wrapper = btn.closest('.sanskrit-dict-wrapper');
+    if (!wrapper) return;
+    const parent = wrapper.parentNode;
+    if (isUp && wrapper.previousElementSibling?.classList.contains('sanskrit-dict-wrapper')) {
+        parent.insertBefore(wrapper, wrapper.previousElementSibling);
+    } else if (!isUp && wrapper.nextElementSibling?.classList.contains('sanskrit-dict-wrapper')) {
+        parent.insertBefore(wrapper.nextElementSibling, wrapper);
+    }
+    saveDictOrder(parent);
 }
