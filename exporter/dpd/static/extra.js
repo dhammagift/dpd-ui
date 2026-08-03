@@ -477,18 +477,14 @@ async function handleClientSearch(rawQuery) {
     const query = cleanQueryParam(rawQuery);
     if (!query) return;
 
-    // Обновляем значение в инпуте, чтобы пользователь видел исправленный вариант
     const searchBox = document.getElementById('search-box');
     if (searchBox && searchBox.value !== query) {
         searchBox.value = query;
     }
 
-    // Записываем историю в память браузера и сразу обновляем боковую колонку 
-    // с помощью родных функций из home.js
     if (typeof addToHistory === 'function') {
         addToHistory(query);
     } else {
-        // Если функция недоступна, обновляем URL вручную
         const newUrl = new URL(window.location);
         newUrl.searchParams.set('q', query);
         window.history.pushState({}, '', newUrl);
@@ -501,12 +497,10 @@ async function handleClientSearch(rawQuery) {
     const resultsContainer = document.getElementById('dpd-results');
     const summaryContainer = document.getElementById('summary-results');
 
-    // 1. Очищаем старое саммари, чтобы оно не висело во время новой загрузки
     if (summaryContainer) {
         summaryContainer.innerHTML = '';
     }
 
-    // 2. Включаем спиннер ожидания и текст прямо в блоке результатов
     if (resultsContainer) {
         const loadingText = window.isRu ? 'Ждём ответ от DPD...' : 'Waiting for a response from DPD...';
         resultsContainer.innerHTML = `
@@ -520,12 +514,13 @@ async function handleClientSearch(rawQuery) {
         resultsContainer.dataset.stale = 'true';
     }
 
+    // Вызов единого централизованного менеджера словарей
+    loadExternalDictionaries(query);
+
     try {
-        // 3. Выполняем сетевой запрос к словарям
         const currentLang = window.isRu ? 'ru' : 'en';
         const data = await fetchFromBackend(query, currentLang);
 
-        // 4. Отрисовываем полученные данные, заменяя спиннер
         if (resultsContainer) {
             resultsContainer.innerHTML = data.dpd_html || '<div class="message">Ничего не найдено</div>';
             resultsContainer.dataset.stale = 'false';
@@ -535,7 +530,6 @@ async function handleClientSearch(rawQuery) {
             summaryContainer.innerHTML = data.summary_html;
         }
 
-        // 5. Принудительно "дёргаем" переключатели для работы скрипта Антона
         const togglesToUpdate = [
             'summary-toggle', 
             'grammar-toggle', 
@@ -552,7 +546,6 @@ async function handleClientSearch(rawQuery) {
         });
 
     } catch (error) {
-        // В случае ошибки показываем сообщение
         if (resultsContainer) {
             resultsContainer.innerHTML = `
                 <div style="color: #c08552; padding: 20px; text-align: center;">
@@ -1636,3 +1629,94 @@ document.addEventListener('DOMContentLoaded', () => {
         };
     }
 });
+
+// Единый менеджер внешних словарей
+function loadExternalDictionaries(query) {
+    const dpdPane = document.getElementById('dpd-pane');
+    if (!dpdPane) return;
+
+    // Ищем или создаем единый контейнер
+    let extContainer = document.getElementById('external-dicts-container');
+    if (!extContainer) {
+        extContainer = document.createElement('div');
+        extContainer.id = 'external-dicts-container';
+        dpdPane.appendChild(extContainer);
+    }
+
+    if (!query) {
+        extContainer.style.display = 'none';
+        extContainer.innerHTML = '';
+        if (typeof lastSanskritQuery !== 'undefined') {
+            lastSanskritQuery = '';
+        }
+        return;
+    }
+
+    // Подготовка контейнера к новому поиску
+    extContainer.style.display = 'block';
+    extContainer.innerHTML = '';
+
+    // 1. Создаем контейнер для Санскрита, чтобы старый код из extra.js продолжал работать
+    let sanskritContainer = document.createElement('div');
+    sanskritContainer.id = 'sanskrit-results';
+    extContainer.appendChild(sanskritContainer);
+
+    // 2. Запускаем поиск Санскрита (он сам найдет сгенерированный #sanskrit-results)
+    if (typeof runSanskritSearch === 'function') {
+        // Принудительно сбрасываем кэш последнего запроса для корректной отработки
+        if (typeof lastSanskritQuery !== 'undefined') {
+            lastSanskritQuery = ''; 
+        }
+        runSanskritSearch();
+    }
+
+    // 3. Вызываем Gandhari
+    appendGandhari(query, extContainer);
+    
+    // В будущем добавлять сюда новые словари:
+    // appendAnotherDict(query, extContainer);
+}
+
+// Модуль словаря Gandhari
+function appendGandhari(query, parentContainer) {
+    const targetUrl = `https://gandhari.org/dictionary?section=dop&search=${encodeURIComponent(query)}`;
+    
+    const wrapper = document.createElement('div');
+    wrapper.style.cssText = "margin-top: 15px;";
+    wrapper.innerHTML = `
+        <div style="display: flex; justify-content: space-between; align-items: center; font-size: 1.2em; margin-bottom: 10px; color: #1a8bdb; border-bottom: 1px solid rgba(26, 139, 219, 0.3); padding-bottom: 5px;">
+            <span style="font-weight: bold;">Gandhari Dictionary</span>
+            <a href="${targetUrl}" target="_blank" style="font-size: 0.8em; color: #1a8bdb; text-decoration: none;">Открыть в новой вкладке ↗</a>
+        </div>
+        <iframe 
+            src="${targetUrl}" 
+            style="width: 100%; height: 450px; border: 2px solid #1a8bdb; border-radius: 8px; background-color: #fff;" 
+            sandbox="allow-scripts allow-same-origin"
+            title="Gandhari Dictionary">
+        </iframe>
+    `;
+    
+    parentContainer.appendChild(wrapper);
+}
+
+// Модуль словаря Gandhari
+function appendGandhari(query, parentContainer) {
+    const targetUrl = `https://gandhari.org/dictionary?section=dop&search=${encodeURIComponent(query)}`;
+    
+    const wrapper = document.createElement('div');
+    wrapper.style.cssText = "margin-top: 15px;";
+    wrapper.innerHTML = `
+        <div style="display: flex; justify-content: space-between; align-items: center; font-size: 1.2em; margin-bottom: 10px; color: #1a8bdb; border-bottom: 1px solid rgba(26, 139, 219, 0.3); padding-bottom: 5px;">
+            <span style="font-weight: bold;">Gandhari Dictionary</span>
+            <a href="${targetUrl}" target="_blank" style="font-size: 0.8em; color: #1a8bdb; text-decoration: none;">Открыть в новой вкладке ↗</a>
+        </div>
+        <iframe 
+            src="${targetUrl}" 
+            style="width: 100%; height: 450px; border: 2px solid #1a8bdb; border-radius: 8px; background-color: #fff;" 
+            sandbox="allow-scripts allow-same-origin"
+            title="Gandhari Dictionary">
+        </iframe>
+    `;
+    
+    parentContainer.appendChild(wrapper);
+}
