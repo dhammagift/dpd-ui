@@ -554,19 +554,16 @@ async function handleClientSearch(rawQuery) {
         
         if (firstHeading && hasRealEntry) {
             const normalizedQuery = firstHeading.textContent.replace(/[\d\s]+$/, '').trim();
-            if (gandhariSlot) gandhariSlot.style.display = 'block';
-            if (ptsSlot) ptsSlot.style.display = 'block';
-            
             appendGandhari(normalizedQuery);
             appendPts(normalizedQuery);
         } else {
             if (gandhariSlot) {
-                gandhariSlot.style.display = 'none';
-                gandhariSlot.innerHTML = '';
+                const c = gandhariSlot.querySelector('.ext-dict-content');
+                if (c) c.innerHTML = '';
             }
             if (ptsSlot) {
-                ptsSlot.style.display = 'none';
-                ptsSlot.innerHTML = '';
+                const c = ptsSlot.querySelector('.ext-dict-content');
+                if (c) c.innerHTML = '';
             }
         }
 
@@ -1189,15 +1186,13 @@ document.addEventListener("DOMContentLoaded", () => {
         removeDraggable();
     });
 
-    const dpdPane = document.getElementById('dpd-pane');
-    if (dpdPane) {
-        const observer = new MutationObserver((mutations) => {
+    // Наблюдаем только #dpd-results, а не весь dpd-pane — элемент перемещается в ext-slot-dpd,
+    // но MutationObserver следует за узлом, а не за позицией в DOM.
+    const dpdResultsForObserver = document.getElementById('dpd-results');
+    if (dpdResultsForObserver) {
+        const observer = new MutationObserver(() => {
             const dpdResults = document.getElementById('dpd-results');
-            // Реагируем только на мутации внутри #dpd-results, не на санскрит/гандхари слоты
-            const isDpdMutation = dpdResults && mutations.some(m =>
-                m.target === dpdResults || dpdResults.contains(m.target)
-            );
-            if (!isDpdMutation) return;
+            if (!dpdResults) return;
 
             if (dpdResults.dataset.stale === 'true') {
                 dpdResults.dataset.stale = 'false';
@@ -1211,12 +1206,11 @@ document.addEventListener("DOMContentLoaded", () => {
                 if (fallbackWord && fallbackWord.toLowerCase() !== query.toLowerCase()) {
                     fetchSanskrit(fallbackWord, true);
                 } else {
-                    // DPD не нашёл Sanskrit-эквивалент — ищем пали-слово напрямую
                     fetchSanskrit(query, true);
                 }
             }
         });
-        observer.observe(dpdPane, { childList: true, subtree: true });
+        observer.observe(dpdResultsForObserver, { childList: true, subtree: true });
     }
 });
 
@@ -1257,10 +1251,7 @@ function runSanskritSearch() {
             waitingForFallback = query;
             const container = document.getElementById('sanskrit-results');
             if (container) {
-                const msg = window.isRu
-                    ? 'Загрузка словарей... <span style="filter: grayscale(100%); opacity: 0.8;">⏳</span>'
-                    : 'Loading dictionaries... <span style="filter: grayscale(100%); opacity: 0.8;">⏳</span>';
-                container.innerHTML = `<div style="color: #666; padding: 5px;">${msg}</div>`;
+                container.innerHTML = `<div style="color: #666; padding: 5px;">${getUiText('loading')}</div>`;
             }
         }
     } else if (!query && lastSanskritQuery !== '') {
@@ -1384,12 +1375,8 @@ async function fetchSanskrit(query, isFallback = false) {
     }
 
     const isRu = window.isRu;
-    const msgLoading = isRu
-        ? 'Загрузка словарей... <span style="filter: grayscale(100%); opacity: 0.8;">⏳</span>'
-        : 'Loading dictionaries... <span style="filter: grayscale(100%); opacity: 0.8;">⏳</span>';
-
     if (!isFallback) {
-        container.innerHTML = `<div style="color: #666; padding: 5px;">${msgLoading}</div>`;
+        container.innerHTML = `<div style="color: #666; padding: 5px;">${getUiText('loading')}</div>`;
     }
 
     try {
@@ -1414,6 +1401,7 @@ async function fetchSanskrit(query, isFallback = false) {
             }
 
             data = await response.json();
+            if (sanskritApiCache.size >= SANSKRIT_CACHE_MAX) sanskritApiCache.delete(sanskritApiCache.keys().next().value);
             sanskritApiCache.set(cacheKey, data);
         }
 
@@ -1576,6 +1564,7 @@ function showEmptyMessage(container, isRu, query, headerHtml) {
 }
 
 const sanskritApiCache = new Map();
+const SANSKRIT_CACHE_MAX = 200;
 
 // ===== КЛИЕНТСКАЯ ЛОГИКА ПОИСКА (ЗАМЕНА MAIN.PY) =====
 
@@ -1759,9 +1748,85 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // ======== КОНФИГУРАЦИЯ ВНЕШНИХ СЛОВАРЕЙ ========
 // Порядок элементов в массиве определяет порядок отображения на странице.
-const EXTERNAL_DICTS_ORDER = ['gandhari', 'pts', 'sanskrit'];
+const EXTERNAL_DICTS_ORDER = ['dpd', 'gandhari', 'pts', 'sanskrit'];
+
+// Создаёт слот для DPD, перенося #dpd-results и #summary-results внутрь
+function createDpdSlot() {
+    const dpdResults = document.getElementById('dpd-results');
+    const summaryResults = document.getElementById('summary-results');
+
+    const slot = document.createElement('div');
+    slot.id = 'ext-slot-dpd';
+
+    const headerObj = renderExtDictHeader('dpd', 'DPD', getBaseUrl());
+    slot.innerHTML = headerObj.headerHtml;
+
+    const contentDiv = document.createElement('div');
+    contentDiv.className = 'ext-dict-content';
+    contentDiv.style.display = headerObj.displayStyle;
+
+    if (summaryResults) contentDiv.appendChild(summaryResults);
+    if (dpdResults) contentDiv.appendChild(dpdResults);
+
+    slot.appendChild(contentDiv);
+    return slot;
+}
 
 // Единый менеджер внешних словарей
+function _initExtSlots(extContainer) {
+    const extStates = JSON.parse(localStorage.getItem('extDictStates') || '{}');
+    let statesChanged = false;
+    for (const code of ['gandhari', 'pts']) {
+        if (!(code in extStates)) { extStates[code] = true; statesChanged = true; }
+    }
+    if (statesChanged) localStorage.setItem('extDictStates', JSON.stringify(extStates));
+
+    const savedSlotOrder = JSON.parse(localStorage.getItem('extDictsOrder') || '[]');
+    let finalSlotOrder = savedSlotOrder.filter(d => EXTERNAL_DICTS_ORDER.includes(d));
+    EXTERNAL_DICTS_ORDER.forEach(d => { if (!finalSlotOrder.includes(d)) finalSlotOrder.push(d); });
+
+    finalSlotOrder.forEach(dictName => {
+        if (dictName === 'dpd') {
+            extContainer.appendChild(createDpdSlot());
+        } else if (dictName === 'gandhari') {
+            extContainer.appendChild(_createIframeDictSlot('gandhari', 'Gandhari Dictionary', 'https://gandhari.org/dictionary?section=dop', 'margin-bottom: 15px; margin-top: 15px;'));
+        } else if (dictName === 'pts') {
+            extContainer.appendChild(_createIframeDictSlot('pts', 'PTS Dictionary', 'https://dsal.uchicago.edu/cgi-bin/app/pali_query.py', 'margin-bottom: 15px;'));
+        } else if (dictName === 'sanskrit') {
+            extContainer.appendChild(_createSanskritSlot());
+        }
+    });
+}
+
+function _createIframeDictSlot(dictCode, title, baseUrl, style) {
+    const slot = document.createElement('div');
+    slot.id = `ext-slot-${dictCode}`;
+    slot.style.cssText = style;
+    const headerObj = renderExtDictHeader(dictCode, title, baseUrl);
+    slot.innerHTML = headerObj.headerHtml;
+    const contentDiv = document.createElement('div');
+    contentDiv.className = 'ext-dict-content';
+    contentDiv.style.cssText = `max-height: 450px; overflow: auto; display: ${headerObj.displayStyle};`;
+    slot.appendChild(contentDiv);
+    return slot;
+}
+
+function _createSanskritSlot() {
+    const slot = document.createElement('div');
+    slot.id = 'ext-slot-sanskrit';
+    const toggleAllBtn = `<button id="sanskrit-toggle-all" style="background:none; border:none; color:#999; font-size: 1.1em; font-weight:bold; cursor:pointer;" title="${window.isRu ? 'Свернуть/развернуть все словари' : 'Toggle all dictionaries'}">+/-</button>`;
+    const headerObj = renderExtDictHeader('sanskrit', window.isRu ? 'Санскрит' : 'Sanskrit', 'https://www.sanskrit-lexicon.uni-koeln.de/', toggleAllBtn);
+    slot.innerHTML = headerObj.headerHtml;
+    const contentDiv = document.createElement('div');
+    contentDiv.className = 'ext-dict-content';
+    contentDiv.style.display = headerObj.displayStyle;
+    const sanskritResults = document.createElement('div');
+    sanskritResults.id = 'sanskrit-results';
+    contentDiv.appendChild(sanskritResults);
+    slot.appendChild(contentDiv);
+    return slot;
+}
+
 function loadExternalDictionaries(query) {
     const dpdPane = document.getElementById('dpd-pane');
     if (!dpdPane) return;
@@ -1771,61 +1836,32 @@ function loadExternalDictionaries(query) {
         extContainer = document.createElement('div');
         extContainer.id = 'external-dicts-container';
         dpdPane.appendChild(extContainer);
+        initExtSlotDragDrop(extContainer);
+        _initExtSlots(extContainer);
+    }
+
+    // Keep DPD open link pointing at current query
+    const dpdOpenLink = document.querySelector('#ext-slot-dpd .ext-dict-open-link');
+    if (dpdOpenLink) {
+        dpdOpenLink.href = query
+            ? `${getBaseUrl()}/?q=${encodeURIComponent(query)}`
+            : getBaseUrl();
+        dpdOpenLink.style.visibility = query ? '' : 'hidden';
     }
 
     if (!query) {
-        extContainer.style.display = 'none';
-        extContainer.innerHTML = '';
         if (typeof lastSanskritQuery !== 'undefined') lastSanskritQuery = '';
+        const sr = document.getElementById('sanskrit-results');
+        if (sr) sr.innerHTML = '';
         return;
     }
 
-    extContainer.style.display = 'block';
-    extContainer.innerHTML = '';
-
-    // Respect saved slot order, fallback to default
-    const savedSlotOrder = JSON.parse(localStorage.getItem('extDictsOrder') || '[]');
-    let finalSlotOrder = savedSlotOrder.filter(d => EXTERNAL_DICTS_ORDER.includes(d));
-    EXTERNAL_DICTS_ORDER.forEach(d => { if (!finalSlotOrder.includes(d)) finalSlotOrder.push(d); });
-
-    finalSlotOrder.forEach(dictName => {
-        const slot = document.createElement('div');
-        slot.id = `ext-slot-${dictName}`;
-        extContainer.appendChild(slot);
-    });
-
-    // Set up Sanskrit slot: header once + content wrapper
-    const sanskritSlot = document.getElementById('ext-slot-sanskrit');
-    if (sanskritSlot) {
-        const extStates = JSON.parse(localStorage.getItem('extDictStates') || '{}');
-        const isSanskritCollapsed = extStates['sanskrit'] === true;
-
-        const toggleAllBtn = `<button id="sanskrit-toggle-all" style="background:none; border:none; color:#999; font-size: 1.1em; font-weight:bold; cursor:pointer;" title="${window.isRu ? 'Свернуть/развернуть все словари' : 'Toggle all dictionaries'}">+/-</button>`;
-        const headerObj = renderExtDictHeader(
-            'sanskrit',
-            window.isRu ? 'Санскрит' : 'Sanskrit',
-            'https://www.sanskrit-lexicon.uni-koeln.de/',
-            toggleAllBtn
-        );
-
-        const contentDiv = document.createElement('div');
-        contentDiv.className = 'ext-dict-content';
-        contentDiv.style.display = headerObj.displayStyle;
-
-        const sanskritResults = document.createElement('div');
-        sanskritResults.id = 'sanskrit-results';
-        contentDiv.appendChild(sanskritResults);
-
-        sanskritSlot.innerHTML = headerObj.headerHtml;
-        sanskritSlot.appendChild(contentDiv);
-
-        if (!isSanskritCollapsed) {
-            if (typeof lastSanskritQuery !== 'undefined') lastSanskritQuery = '';
-            runSanskritSearch();
-        }
+    // Sanskrit (Gandhari/PTS are updated from the DPD results handler)
+    const extStates = JSON.parse(localStorage.getItem('extDictStates') || '{}');
+    if (extStates['sanskrit'] !== true) {
+        if (typeof lastSanskritQuery !== 'undefined') lastSanskritQuery = '';
+        runSanskritSearch();
     }
-
-    initExtSlotDragDrop(extContainer);
 }
 
 function initExtSlotDragDrop(container) {
@@ -1891,50 +1927,26 @@ function initExtSlotDragDrop(container) {
         removeSlotDraggable();
     });
 }
-// Модуль словаря Gandhari
-function appendGandhari(query) {
-    const slot = document.getElementById('ext-slot-gandhari');
+function appendIframeDict(dictCode, title, targetUrl) {
+    const slot = document.getElementById(`ext-slot-${dictCode}`);
     if (!slot) return;
 
-    const targetUrl = `https://gandhari.org/dictionary?section=dop&search=${encodeURIComponent(query)}`;
-    const headerObj = renderExtDictHeader('gandhari', 'Gandhari Dictionary', targetUrl);
-    const iframeSrc = headerObj.displayStyle === 'none' ? `data-src="${targetUrl}"` : `src="${targetUrl}"`;
+    const openLink = slot.querySelector('.ext-dict-open-link');
+    if (openLink) openLink.href = targetUrl;
 
-    slot.style.cssText = "margin-bottom: 15px; margin-top: 15px;";
-    slot.innerHTML = `
-        ${headerObj.headerHtml}
-        <div class="ext-dict-content" style="max-height: 450px; overflow: auto; display: ${headerObj.displayStyle};">
-            <iframe
-                ${iframeSrc}
-                style="width: 100%; height: 450px; border: 2px solid #1a8bdb; border-radius: 8px; background-color: #fff;"
-                sandbox="allow-scripts allow-same-origin"
-                title="Gandhari Dictionary">
-            </iframe>
-        </div>
-    `;
+    const content = slot.querySelector('.ext-dict-content');
+    if (!content) return;
+
+    const iframeAttr = content.style.display === 'none' ? `data-src="${targetUrl}"` : `src="${targetUrl}"`;
+    content.innerHTML = `<iframe ${iframeAttr} style="width: 100%; height: 450px; border: 2px solid #1a8bdb; border-radius: 8px; background-color: #fff;" sandbox="allow-scripts allow-same-origin" title="${title}"></iframe>`;
 }
 
-// Модуль словаря PTS
+function appendGandhari(query) {
+    appendIframeDict('gandhari', 'Gandhari Dictionary', `https://gandhari.org/dictionary?section=dop&search=${encodeURIComponent(query)}`);
+}
+
 function appendPts(query) {
-    const slot = document.getElementById('ext-slot-pts');
-    if (!slot) return;
-
-    const targetUrl = `https://dsal.uchicago.edu/cgi-bin/app/pali_query.py?matchtype=default&qs=${encodeURIComponent(query)}`;
-    const headerObj = renderExtDictHeader('pts', 'PTS Dictionary', targetUrl);
-    const iframeSrc = headerObj.displayStyle === 'none' ? `data-src="${targetUrl}"` : `src="${targetUrl}"`;
-
-    slot.style.cssText = "margin-bottom: 15px;";
-    slot.innerHTML = `
-        ${headerObj.headerHtml}
-        <div class="ext-dict-content" style="max-height: 450px; overflow: auto; display: ${headerObj.displayStyle};">
-            <iframe
-                ${iframeSrc}
-                style="width: 100%; height: 450px; border: 2px solid #1a8bdb; border-radius: 8px; background-color: #fff;"
-                sandbox="allow-scripts allow-same-origin"
-                title="PTS Dictionary">
-            </iframe>
-        </div>
-    `;
+    appendIframeDict('pts', 'PTS Dictionary', `https://dsal.uchicago.edu/cgi-bin/app/pali_query.py?matchtype=default&qs=${encodeURIComponent(query)}`);
 }
 
 // Обработчик сворачивания целых блоков внешних словарей с сохранением состояния
@@ -1978,11 +1990,13 @@ document.addEventListener('click', (e) => {
 const UI_TEXTS = {
     ru: {
         openInNewTab: 'Открыть ↗',
-        sanskrit: 'Санскрит'
+        sanskrit: 'Санскрит',
+        loading: 'Загрузка словарей... <span style="filter: grayscale(100%); opacity: 0.8;">⏳</span>'
     },
     en: {
         openInNewTab: 'Open ↗',
-        sanskrit: 'Sanskrit'
+        sanskrit: 'Sanskrit',
+        loading: 'Loading dictionaries... <span style="filter: grayscale(100%); opacity: 0.8;">⏳</span>'
     }
 };
 
@@ -1993,8 +2007,7 @@ function getUiText(key) {
 
 // Универсальный генератор шапки для внешних словарей
 function renderExtDictHeader(dictCode, title, targetUrl, extraRightHtml = '') {
-    const openText = getUiText('openInNewTab');
-    const linkHtml = targetUrl ? `<a href="${targetUrl}" target="_blank" style="font-size: 0.8em; color: #1a8bdb; text-decoration: none;" onclick="event.stopPropagation();">${openText}</a>` : '';
+    const linkHtml = `<a href="${targetUrl || '#'}" class="ext-dict-open-link" target="_blank" style="display:inline-flex; align-items:center; opacity:0.55; line-height:0;${targetUrl ? '' : ' visibility:hidden;'}" onclick="event.stopPropagation();" title="${getUiText('openInNewTab')}"><img src="static/open-link.svg" style="width:15px; height:15px; filter:invert(40%) sepia(80%) saturate(500%) hue-rotate(190deg);"></a>`;
 
     const states = JSON.parse(localStorage.getItem('extDictStates') || '{}');
     const isCollapsed = states[dictCode] === true;
@@ -2032,16 +2045,22 @@ function buildDragGhost(text) {
     return ghost;
 }
 
+function swapSibling(el, isUp, siblingFilter) {
+    const parent = el.parentNode;
+    if (isUp) {
+        const prev = el.previousElementSibling;
+        if (prev && (!siblingFilter || siblingFilter(prev))) parent.insertBefore(el, prev);
+    } else {
+        const next = el.nextElementSibling;
+        if (next && (!siblingFilter || siblingFilter(next))) parent.insertBefore(next, el);
+    }
+}
+
 function moveExtSlot(btn, isUp) {
     const slot = btn.closest('[id^="ext-slot-"]');
     if (!slot) return;
-    const container = slot.parentNode;
-    if (isUp && slot.previousElementSibling) {
-        container.insertBefore(slot, slot.previousElementSibling);
-    } else if (!isUp && slot.nextElementSibling) {
-        container.insertBefore(slot.nextElementSibling, slot);
-    }
-    const newOrder = Array.from(container.querySelectorAll('[id^="ext-slot-"]'))
+    swapSibling(slot, isUp, null);
+    const newOrder = Array.from(slot.parentNode.querySelectorAll('[id^="ext-slot-"]'))
         .map(s => s.id.replace('ext-slot-', ''));
     localStorage.setItem('extDictsOrder', JSON.stringify(newOrder));
 }
@@ -2049,11 +2068,6 @@ function moveExtSlot(btn, isUp) {
 function moveSanskritDict(btn, isUp) {
     const wrapper = btn.closest('.sanskrit-dict-wrapper');
     if (!wrapper) return;
-    const parent = wrapper.parentNode;
-    if (isUp && wrapper.previousElementSibling?.classList.contains('sanskrit-dict-wrapper')) {
-        parent.insertBefore(wrapper, wrapper.previousElementSibling);
-    } else if (!isUp && wrapper.nextElementSibling?.classList.contains('sanskrit-dict-wrapper')) {
-        parent.insertBefore(wrapper.nextElementSibling, wrapper);
-    }
-    saveDictOrder(parent);
+    swapSibling(wrapper, isUp, el => el.classList.contains('sanskrit-dict-wrapper'));
+    saveDictOrder(wrapper.parentNode);
 }
