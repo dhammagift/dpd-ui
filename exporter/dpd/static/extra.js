@@ -1,6 +1,11 @@
 //история перестала добавляться на лету и теперь требует перезагрузки страницы. 
 
-window.isRu = window.location.pathname.startsWith('/ru');
+window.isRu = /\/ru(\/|$)/.test(window.location.pathname);
+
+// Returns the app's install base path (e.g. '/' or '/dict/'), stripping any /ru or /th segment.
+function getAppBase() {
+    return window.location.pathname.replace(/\/(ru|th)(\/|$)/, '/').replace(/\/\//g, '/') || '/';
+}
 
 // theme from GET ?theme=dark|light
 (function () {
@@ -54,12 +59,14 @@ if (isPWA) {
     const currentHash = window.location.hash;
 
     // Делаем редирект с сохранением всех параметров (кроме source=pwa) и хэша
-    if (siteLanguage === 'ru' && !currentPath.includes('/ru/')) {
-        window.location.href = `/ru/${queryString}${currentHash}`;
-    } else if (siteLanguage === 'th' && !currentPath.includes('/th/')) {
-        window.location.href = `/th/${queryString}${currentHash}`;
-    } else if (siteLanguage === 'en' && currentPath !== '/') {
-        window.location.href = `/${queryString}${currentHash}`;
+    const base = getAppBase();
+    const basePath = base.replace(/\/$/, '');  // strip trailing slash for concatenation
+    if (siteLanguage === 'ru' && !currentPath.match(/\/ru(\/|$)/)) {
+        window.location.href = `${basePath}/ru/${queryString}${currentHash}`;
+    } else if (siteLanguage === 'th' && !currentPath.match(/\/th(\/|$)/)) {
+        window.location.href = `${basePath}/th/${queryString}${currentHash}`;
+    } else if (siteLanguage === 'en' && currentPath.match(/\/(ru|th)(\/|$)/)) {
+        window.location.href = `${base}${queryString}${currentHash}`;
     }
 }
 // ======== Конфигурация ========
@@ -179,18 +186,10 @@ function handleLanguageShortcut(event) {
 
 // Переключение языка
 function toggleLanguage() {
-    const currentPath = window.location.pathname;
-    let newPath, newLang;
-    
-    if (currentPath.startsWith(LANGUAGE_PREFIX)) {
-        newPath = currentPath.slice(LANGUAGE_PREFIX.length) || '/';
-        newLang = DEFAULT_LANG;
-    } else {
-        newPath = LANGUAGE_PREFIX + (currentPath === '/' ? '' : currentPath);
-        newLang = 'ru';
-    }
-    
-    localStorage.setItem("preferredLanguage", newLang);
+    const base = getAppBase();
+    const onRu = /\/ru(\/|$)/.test(window.location.pathname);
+    const newPath = onRu ? base : base.replace(/\/$/, '') + '/ru/';
+    localStorage.setItem("preferredLanguage", onRu ? DEFAULT_LANG : 'ru');
     redirectWithLanguage(newPath);
 }
 
@@ -415,19 +414,9 @@ function changeLanguage(lang) {
   }
 
   const url = new URL(window.location.href);
-  let path = url.pathname; 
-  let siteLanguage = '';
-  
-  path = path.replace(/^\/ru/, '');
-
-  if (lang === 'ru') {
-    path = '/ru' + path;
-    siteLanguage = 'ru'; 
-  } else {
-    siteLanguage = 'en';
-  }
-
-  url.pathname = path;
+  const base = getAppBase();
+  url.pathname = lang === 'ru' ? base.replace(/\/$/, '') + '/ru/' : base;
+  const siteLanguage = lang === 'ru' ? 'ru' : 'en';
 
   localStorage.setItem('siteLanguage', siteLanguage);
 
@@ -600,7 +589,7 @@ document.addEventListener('click', (e) => {
   if (dpd) {
     updateLink(
       dpd,
-      window.location.pathname.startsWith('/ru')
+      window.isRu
         ? 'https://ru.dpdict.net'
         : 'https://dpdict.net'
     );
@@ -1268,9 +1257,11 @@ function highlightQuery(html, query) {
     const div = document.createElement('div');
     div.innerHTML = html;
     
-    const chars = query.split('').map(c => c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
-    // В регулярное выражение добавлены короткое тире (–), длинное тире (—) и горизонтальный штрих (―)
-    const regex = new RegExp(`(${chars.join('[\\-\\.\\–\\—\\―\\~\\s]*')})`, 'gi');
+    const SEP = '[\\-\\.\\–\\—\\―\\~\\s]*';
+    const chars = query.split('').map(c =>
+        /[-–—―~]/.test(c) ? '[\\-–—―~]+' : c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    );
+    const regex = new RegExp(`(${chars.join(SEP)})`, 'gi');
     
     function traverse(node) {
         if (node.nodeType === 3) {
