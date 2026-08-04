@@ -542,9 +542,10 @@ async function handleClientSearch(rawQuery) {
         const ptsSlot = document.getElementById('ext-slot-pts');
         
         if (firstHeading && hasRealEntry) {
-            const normalizedQuery = firstHeading.textContent.replace(/[\d\s]+$/, '').trim();
+            const normalizedQuery = firstHeading.textContent.replace(/\s+\d+(\.\d+)*$/, '').trim();
             appendGandhari(normalizedQuery);
             appendPts(normalizedQuery);
+            appendWisdomLib(normalizedQuery);
         } else {
             if (gandhariSlot) {
                 const c = gandhariSlot.querySelector('.ext-dict-content');
@@ -552,6 +553,11 @@ async function handleClientSearch(rawQuery) {
             }
             if (ptsSlot) {
                 const c = ptsSlot.querySelector('.ext-dict-content');
+                if (c) c.innerHTML = '';
+            }
+            const wisdomlibSlot = document.getElementById('ext-slot-wisdomlib');
+            if (wisdomlibSlot) {
+                const c = wisdomlibSlot.querySelector('.ext-dict-content');
                 if (c) c.innerHTML = '';
             }
         }
@@ -1739,7 +1745,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // ======== КОНФИГУРАЦИЯ ВНЕШНИХ СЛОВАРЕЙ ========
 // Порядок элементов в массиве определяет порядок отображения на странице.
-const EXTERNAL_DICTS_ORDER = ['dpd', 'gandhari', 'pts', 'sanskrit'];
+const EXTERNAL_DICTS_ORDER = ['dpd', 'gandhari', 'pts', 'wisdomlib', 'sanskrit'];
 
 // Создаёт слот для DPD, перенося #dpd-results и #summary-results внутрь
 function createDpdSlot() {
@@ -1767,7 +1773,7 @@ function createDpdSlot() {
 function _initExtSlots(extContainer) {
     const extStates = JSON.parse(localStorage.getItem('extDictStates') || '{}');
     let statesChanged = false;
-    for (const code of ['gandhari', 'pts']) {
+    for (const code of ['gandhari', 'pts', 'wisdomlib']) {
         if (!(code in extStates)) { extStates[code] = true; statesChanged = true; }
     }
     if (statesChanged) localStorage.setItem('extDictStates', JSON.stringify(extStates));
@@ -1783,6 +1789,8 @@ function _initExtSlots(extContainer) {
             extContainer.appendChild(_createIframeDictSlot('gandhari', 'Gandhari Dictionary', 'https://gandhari.org/dictionary?section=dop', 'margin-bottom: 15px; margin-top: 15px;'));
         } else if (dictName === 'pts') {
             extContainer.appendChild(_createIframeDictSlot('pts', 'PTS Dictionary', 'https://dsal.uchicago.edu/cgi-bin/app/pali_query.py', 'margin-bottom: 15px;'));
+        } else if (dictName === 'wisdomlib') {
+            extContainer.appendChild(_createIframeDictSlot('wisdomlib', 'Wisdom Library', 'https://www.wisdomlib.org/definition/', 'margin-bottom: 15px;'));
         } else if (dictName === 'sanskrit') {
             extContainer.appendChild(_createSanskritSlot());
         }
@@ -1938,6 +1946,10 @@ function appendGandhari(query) {
 
 function appendPts(query) {
     appendIframeDict('pts', 'PTS Dictionary', `https://dsal.uchicago.edu/cgi-bin/app/pali_query.py?matchtype=default&qs=${encodeURIComponent(query)}`);
+}
+
+function appendWisdomLib(query) {
+    appendIframeDict('wisdomlib', 'Wisdom Library', `https://www.wisdomlib.org/definition/${encodeURIComponent(query)}`);
 }
 
 // Обработчик сворачивания целых блоков внешних словарей с сохранением состояния
