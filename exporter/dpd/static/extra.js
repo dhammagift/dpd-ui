@@ -511,7 +511,10 @@ async function handleClientSearch(rawQuery) {
         const data = await fetchFromBackend(query, currentLang);
 
         if (resultsContainer) {
-            resultsContainer.innerHTML = data.dpd_html || '<div class="message">Ничего не найдено</div>';
+            const rawHtml = data.dpd_html || '<div class="message">Ничего не найдено</div>';
+            resultsContainer.innerHTML = typeof wrapApostrophesInHTML === 'function'
+                ? wrapApostrophesInHTML(rawHtml)
+                : rawHtml;
             resultsContainer.dataset.stale = 'false';
         }
 
@@ -520,9 +523,10 @@ async function handleClientSearch(rawQuery) {
         }
 
         const togglesToUpdate = [
-            'summary-toggle', 
-            'grammar-toggle', 
-            'example-toggle', 
+            'summary-toggle',
+            'grammar-toggle',
+            'example-toggle',
+            'sandhi-toggle',
             'sanskrit-toggle'
         ];
         
@@ -1452,15 +1456,15 @@ async function fetchSanskrit(query, isFallback = false) {
                 const displayStyle = isCollapsed ? 'none' : 'block';
 
                 htmlContent += `
-                    <div class="sanskrit-dict-wrapper" data-dictcode="${dictCode}" style="margin-bottom: 5px;">
-                        <div class="sanskrit-dict-header" data-dictcode="${dictCode}" style="display: flex; justify-content: space-between; font-weight: bold; margin-top: 10px; margin-bottom: 5px; color: #1a8bdb; cursor: pointer; user-select: none;">
+                    <div class="sanskrit-dict-wrapper" data-dictcode="${dictCode}">
+                        <div class="sanskrit-dict-header" data-dictcode="${dictCode}">
                             <div>
-                                <span class="dict-icon" style="display:inline-block; width:18px;">${icon}</span> ${dictName}:
+                                <span class="dict-icon">${icon}</span> ${dictName}:
                             </div>
-                            <div style="min-width: 75px; text-align: right; color: #999; display: flex; justify-content: flex-end; align-items: center;" onclick="event.stopPropagation();">
-                                <button class="dict-move-up" onclick="event.stopPropagation(); moveSanskritDict(this, true);" style="background:none; border:none; cursor:pointer; color:#999; padding: 0 3px;" title="Up">↑</button>
-                                <button class="dict-move-down" onclick="event.stopPropagation(); moveSanskritDict(this, false);" style="background:none; border:none; cursor:pointer; color:#999; padding: 0 3px;" title="Down">↓</button>
-                                <span class="dict-drag-handle" style="cursor: grab; margin-left: 8px; color: #999; font-size: 1.1em; touch-action: none;" title="Drag to reorder">☰</span>
+                            <div class="sanskrit-dict-header-right" onclick="event.stopPropagation();">
+                                <button class="dict-move-up" onclick="event.stopPropagation(); moveSanskritDict(this, true);" title="Up">↑</button>
+                                <button class="dict-move-down" onclick="event.stopPropagation(); moveSanskritDict(this, false);" title="Down">↓</button>
+                                <span class="dict-drag-handle" title="Drag to reorder">☰</span>
                             </div>
                         </div>
                         <div class="sanskrit-dict-content" id="sanskrit-content-${dictCode}" style="display: ${displayStyle};">`;
@@ -1468,7 +1472,7 @@ async function fetchSanskrit(query, isFallback = false) {
                 entries.forEach(entry => {
                     if (entry.csl && entry.csl.html) {
                         const highlightedHtml = highlightQuery(entry.csl.html, query);
-                        htmlContent += `<div style="margin-bottom: 8px; padding-left: 8px; border-left: 3px solid #1a8bdb;">${highlightedHtml}</div>`;
+                        htmlContent += `<div class="sanskrit-dict-entry">${highlightedHtml}</div>`;
                     }
                 });
 
@@ -1720,27 +1724,22 @@ document.addEventListener('DOMContentLoaded', () => {
         historyPane.addEventListener("touchend", newHandleTouchEnd);
     }
 
-    // 5. Глушим старую логику отправки формы из home.js, чтобы избежать конфликтов и спиннера
-    if (typeof handleFormSubmit === 'function') {
-        const formObj = document.getElementById("search-form");
-        const btnObj = document.getElementById("search-button");
-        
-        if (formObj) formObj.removeEventListener("submit", handleFormSubmit);
-        if (btnObj) btnObj.removeEventListener("submit", handleFormSubmit);
-        if (btnObj) btnObj.removeEventListener("click", handleFormSubmit);
-        
-        // Подменяем глобальную функцию для других скриптов, которые её вызывают
-        window.handleFormSubmit = function(event) {
-            if (event) event.preventDefault();
-            const searchBox = document.getElementById('search-box');
-            if (searchBox && searchBox.value) {
-                handleClientSearch(searchBox.value);
-                if (typeof runSanskritSearch === 'function') {
-                    setTimeout(runSanskritSearch, 200);
-                }
+    // 5. Регистрируем глобальный handleFormSubmit для формы и автокомплита
+    window.handleFormSubmit = function(event) {
+        if (event) event.preventDefault();
+        const searchBox = document.getElementById('search-box');
+        if (searchBox && searchBox.value) {
+            handleClientSearch(searchBox.value);
+            if (typeof runSanskritSearch === 'function') {
+                setTimeout(runSanskritSearch, 200);
             }
-        };
-    }
+        }
+    };
+
+    const formObj = document.getElementById("search-form");
+    const btnObj = document.getElementById("search-button");
+    if (formObj) formObj.addEventListener("submit", window.handleFormSubmit);
+    if (btnObj) btnObj.addEventListener("click", window.handleFormSubmit);
 });
 
 // ======== КОНФИГУРАЦИЯ ВНЕШНИХ СЛОВАРЕЙ ========
@@ -2010,7 +2009,7 @@ function getUiText(key) {
 
 // Универсальный генератор шапки для внешних словарей
 function renderExtDictHeader(dictCode, title, targetUrl, extraRightHtml = '') {
-    const linkHtml = `<a href="${targetUrl || '#'}" class="ext-dict-open-link" target="_blank" style="display:inline-flex; align-items:center; opacity:0.55; line-height:0;${targetUrl ? '' : ' visibility:hidden;'}" onclick="event.stopPropagation();" title="${getUiText('openInNewTab')}"><img src="static/open-link.svg" style="width:15px; height:15px; filter:invert(40%) sepia(80%) saturate(500%) hue-rotate(190deg);"></a>`;
+    const linkHtml = `<a href="${targetUrl || '#'}" class="ext-dict-open-link" target="_blank"${targetUrl ? '' : ' style="visibility:hidden;"'} onclick="event.stopPropagation();" title="${getUiText('openInNewTab')}"><img src="static/open-link.svg" class="ext-dict-open-icon"></a>`;
 
     const states = JSON.parse(localStorage.getItem('extDictStates') || '{}');
     const isCollapsed = states[dictCode] === true;
@@ -2018,21 +2017,21 @@ function renderExtDictHeader(dictCode, title, targetUrl, extraRightHtml = '') {
     const displayStyle = isCollapsed ? 'none' : 'block';
 
     const moveButtons = `
-        <button class="ext-dict-move-up" onclick="event.stopPropagation(); moveExtSlot(this, true);" style="background:none; border:none; cursor:pointer; color:#999; padding: 0 2px;" title="Move up">↑</button>
-        <button class="ext-dict-move-down" onclick="event.stopPropagation(); moveExtSlot(this, false);" style="background:none; border:none; cursor:pointer; color:#999; padding: 0 2px;" title="Move down">↓</button>`;
+        <button class="ext-dict-move-up" onclick="event.stopPropagation(); moveExtSlot(this, true);" title="Move up">↑</button>
+        <button class="ext-dict-move-down" onclick="event.stopPropagation(); moveExtSlot(this, false);" title="Move down">↓</button>`;
 
     return {
         headerHtml: `
-            <div class="ext-dict-header" data-dictcode="${dictCode}" style="display: flex; justify-content: space-between; align-items: center; font-size: 1.2em; margin-bottom: 10px; color: #1a8bdb; border-bottom: 1px solid rgba(26, 139, 219, 0.3); padding-bottom: 5px; cursor: pointer; user-select: none;">
+            <div class="ext-dict-header" data-dictcode="${dictCode}">
                 <div>
-                    <span class="ext-dict-toggle-icon" style="display:inline-block; width:18px;">${icon}</span>
-                    <span style="font-weight: bold;">${title}</span>
+                    <span class="ext-dict-toggle-icon">${icon}</span>
+                    <span class="ext-dict-title">${title}</span>
                 </div>
-                <div style="display: flex; align-items: center; gap: 10px;" onclick="event.stopPropagation();">
+                <div class="ext-dict-header-right" onclick="event.stopPropagation();">
                     ${extraRightHtml}
                     ${linkHtml}
                     ${moveButtons}
-                    <span class="ext-dict-drag-handle" style="cursor: grab; color: #999; font-size: 1.1em; touch-action: none;" title="Drag to reorder">☰</span>
+                    <span class="ext-dict-drag-handle" title="Drag to reorder">☰</span>
                 </div>
             </div>`,
         displayStyle: displayStyle
@@ -2042,7 +2041,7 @@ function renderExtDictHeader(dictCode, title, targetUrl, extraRightHtml = '') {
 function buildDragGhost(text) {
     const ghost = document.createElement('div');
     ghost.textContent = text.slice(0, 40);
-    ghost.style.cssText = 'position:fixed;top:-200px;left:-200px;padding:6px 14px;background:#1a8bdb;color:#fff;border-radius:6px;font-size:0.95em;white-space:nowrap;pointer-events:none;z-index:9999;';
+    ghost.className = 'drag-ghost';
     document.body.appendChild(ghost);
     void ghost.offsetWidth; // force layout to get dimensions
     return ghost;
@@ -2074,3 +2073,113 @@ function moveSanskritDict(btn, isUp) {
     swapSibling(wrapper, isUp, el => el.classList.contains('sanskrit-dict-wrapper'));
     saveDictOrder(wrapper.parentNode);
 }
+
+// ======== HISTORY MANAGEMENT (moved from home.js) ========
+function addToHistory(word) {
+    let historyList = JSON.parse(localStorage.getItem("history-list")) || [];
+    const index = historyList.indexOf(word);
+    if (index !== -1) historyList.splice(index, 1);
+    historyList.unshift(word);
+    if (historyList.length > 50) historyList.pop();
+    localStorage.setItem("history-list", JSON.stringify(historyList));
+    const newUrl = new URL(window.location);
+    newUrl.searchParams.set('q', word);
+    if (window.location.search !== newUrl.search) {
+        window.history.pushState({ q: word }, '', newUrl);
+    }
+    toggleClearHistoryButton();
+}
+
+function populateHistoryBody() {
+    const historyListPane = document.getElementById("history-list-pane");
+    if (!historyListPane) return;
+    let historyList = JSON.parse(localStorage.getItem("history-list")) || [];
+    const ul = document.createElement("ul");
+    ul.id = "history-list";
+    historyList.forEach(item => {
+        const li = document.createElement("li");
+        li.textContent = item;
+        ul.appendChild(li);
+    });
+    historyListPane.innerHTML = "";
+    historyListPane.appendChild(ul);
+}
+
+function toggleClearHistoryButton() {
+    const btn = document.getElementById("clear-history-button");
+    if (!btn) return;
+    const historyList = JSON.parse(localStorage.getItem("history-list")) || [];
+    btn.style.display = historyList.length === 0 ? "none" : "inline-block";
+}
+
+// ======== THEME (moved from home.js) ========
+function applySavedTheme() {
+    const savedTheme = localStorage.getItem("theme");
+    const themeToggle = document.getElementById("theme-toggle");
+    if (savedTheme) {
+        document.body.classList.remove("dark-mode", "light-mode");
+        document.body.classList.add(savedTheme + "-mode");
+        if (themeToggle) themeToggle.checked = savedTheme === "dark";
+    }
+}
+
+// ======== INFLECTION TABLE HIGHLIGHT ========
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('[data-target]')) return;
+    setTimeout(highlightInflectionMatch, 0);
+});
+
+function normalizeNiggahita(str) {
+    return str.replace(/ṁ/g, 'ṃ');
+}
+
+function highlightInflectionMatch() {
+    const raw = (document.getElementById('search-box')?.value?.trim() ||
+                 new URLSearchParams(window.location.search).get('q') || '');
+    const query = normalizeNiggahita(raw.toLowerCase());
+    if (!query) return;
+
+    document.querySelectorAll('#dpd-results table.inflection').forEach(table => {
+        if (table.closest('.content.hidden')) return;
+
+        table.querySelectorAll('td').forEach(td => {
+            if (td.dataset.origHtml !== undefined) {
+                td.innerHTML = td.dataset.origHtml;
+            } else {
+                td.dataset.origHtml = td.innerHTML;
+            }
+
+            const parts = td.dataset.origHtml.split(/<br\s*\/?>/i);
+            const newParts = parts.map(part => {
+                const tmp = document.createElement('div');
+                tmp.innerHTML = part;
+                const text = normalizeNiggahita(tmp.textContent.trim().toLowerCase());
+                return text === query
+                    ? `<span class="inflection-word-match">${part}</span>`
+                    : part;
+            });
+
+            td.innerHTML = newParts.join('<br>');
+        });
+    });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    applySavedTheme();
+    if (typeof initStartMessage === 'function') {
+        const lang = document.documentElement.lang || 'en';
+        initStartMessage(lang);
+    }
+    populateHistoryBody();
+    toggleClearHistoryButton();
+
+    const clearBtn = document.getElementById("clear-history-button");
+    if (clearBtn) {
+        clearBtn.addEventListener("click", function() {
+            localStorage.removeItem("history-list");
+            const list = document.getElementById("history-list");
+            if (list) list.innerHTML = "";
+            toggleClearHistoryButton();
+        });
+    }
+});
