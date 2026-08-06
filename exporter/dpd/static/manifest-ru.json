@@ -1,6 +1,6 @@
 {
-  "short_name": "DGift DPD",
-  "name": "DPD Dhamma.Gift",
+  "short_name": "DDG",
+  "name": "Dict.Dhamma.Gift",
   "icons": [
     {
       "src": "/static/dpd.ico",
@@ -8,9 +8,9 @@
       "sizes": "64x64"
     },
     {
-      "src": "/static/dpd-logo.svg",
+      "src": "/static/dg-logo.svg",
       "type": "image/svg+xml",
-      "sizes": "192x192 512x512"  
+      "sizes": "192x192 512x512"
     }
   ],
   "start_url": "/ru/?source=pwa",
@@ -18,7 +18,7 @@
   "display": "standalone",
   "background_color": "#E4F8FF",
   "theme_color": "#00131B",
-  "description": "DPD Онлайн Пали-Русский словарь с улучшенным интерфейсом.",
+  "description": "Dict.Dhamma.Gift — мультисловарь пали, объединяющий DPD, Гандхари, PTS, санскрит и определения Sutta-Vinaya в одном месте.",
   "lang": "",
   "share_target": {
     "action": "/ru/",

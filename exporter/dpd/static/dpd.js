@@ -1,43 +1,41 @@
-function playAudio(headword) {
+function playAudio(headword, gender) {
     if (!headword) return;
     
-    let gender = "male";
-    try {
-        const audioToggle = localStorage.getItem("audio-toggle");
-        if (audioToggle === "true") {
-            gender = "female";
-        }
-    } catch (e) {}
+    const validGenders = ["male", "female", "male1", "male2", "female1"];
+    if (!validGenders.includes(gender)) {
+        gender = "male";
+        try {
+            const audioToggle = localStorage.getItem("audio-toggle");
+            if (audioToggle === "true") {
+                gender = "female";
+            }
+        } catch (e) {}
+    }
 
-    // Убедитесь, что здесь указан полный URL к внешнему серверу
     const url = 'https://dpdict.net/audio/' + encodeURIComponent(headword) + '?gender=' + gender;
-    
     var audio = new Audio(url);
     audio.play().catch(function (error) {
         console.error("Audio playback error:", error);
     });
 }
 
-// Делаем функцию доступной глобально
+// Attach to window so it's always accessible
 window.playAudio = playAudio;
 
-// Слушатель кликов
+// Global delegated click listener
 document.addEventListener("click", function (event) {
-    // 1. Ищем кнопку воспроизведения (поддерживаем оба класса)
-    var playButton = event.target.closest(".button.play, .dpd-button.play");
-    
+    var playButton = event.target.closest(".dpd-button.play");
     if (playButton) {
         var headword = playButton.getAttribute("data-headword");
+        var gender = playButton.getAttribute("data-gender");
         if (headword) {
-            playAudio(headword);
+            playAudio(headword, gender);
             event.preventDefault();
             return false;
         }
     }
 
-    // 2. Ищем обычные кнопки переключения (поддерживаем оба класса)
-    var otherButton = event.target.closest(".button, .dpd-button");
-    
+    var otherButton = event.target.closest(".dpd-button");
     if (otherButton && otherButton.getAttribute("data-target")) {
         const target_id = otherButton.getAttribute("data-target");
         var target = document.getElementById(target_id);
@@ -45,19 +43,40 @@ document.addEventListener("click", function (event) {
             let oneButtonToggleEnabled = false;
             try {
                 oneButtonToggleEnabled = localStorage.getItem("one-button-toggle") === "true";
-            } catch (e) {}
+            } catch (e) {
+                console.log("LocalStorage is not available.");
+            }
 
             if (oneButtonToggleEnabled) {
-                // Снимаем активность со ВСЕХ кнопок обоих типов
-                document.querySelectorAll('.button, .dpd-button').forEach(b => {
-                    if (b !== otherButton) b.classList.remove("active");
+                 var allButtons = document.querySelectorAll('.dpd-button');
+                allButtons.forEach(function (button) {
+                    if (button !== otherButton) {
+                        button.classList.remove("active");
+                    }
                 });
-                document.querySelectorAll('.content').forEach(c => {
-                    if (c !== target && !c.classList.contains("summary")) c.classList.add("hidden");
+
+                var allContentAreas = document.querySelectorAll('.content');
+                allContentAreas.forEach(function (contentArea) {
+                    if (contentArea !== target && !contentArea.classList.contains("summary")) {
+                        contentArea.classList.add("hidden");
+                    }
                 });
+
+                if (!target.classList.contains('summary')) {
+                    target.classList.toggle("hidden");
+                }
+            } else {
+                target.classList.toggle("hidden");
             }
-            target.classList.toggle("hidden");
-            otherButton.classList.toggle("active");
+
+            if (otherButton.classList.contains("close")) {
+                 var target_control = document.querySelector('a.dpd-button[data-target="' + target_id + '"]');
+                if (target_control) {
+                    target_control.classList.toggle("active");
+                }
+            } else {
+                otherButton.classList.toggle("active");
+            }
         }
         event.preventDefault();
     }

@@ -66,15 +66,6 @@ document.addEventListener("DOMContentLoaded", function() {
     const htmlElement = document.documentElement;
     language = htmlElement.lang || 'en';
 
-// Инициализация при загрузке
-    initStartMessage(language);
-
-    if (dpdResults.innerHTML.trim() === "") {
-        dpdResults.innerHTML = startMessage;
-    } 
-  
-    applySavedTheme();
-    populateHistoryBody();
     loadToggleState("theme-toggle");
     loadToggleState("sans-serif-toggle");
     loadToggleState("niggahita-toggle");
@@ -84,12 +75,10 @@ document.addEventListener("DOMContentLoaded", function() {
     // loadToggleState("sbs-example-toggle");
     loadToggleState("summary-toggle");
     loadToggleState("sandhi-toggle");
-  loadToggleState("audio-toggle");
+    loadToggleState("audio-toggle");
 
     loadFontSize();
-    toggleClearHistoryButton();
     swopSansSerif();
-    applyUrlQuery();
 
     // Language switcher dropdown control
     const languageIcon = document.querySelector(".language-icon");
@@ -118,9 +107,9 @@ document.addEventListener("DOMContentLoaded", function() {
 //// back button
 
 window.onpopstate = function(e) {
-    if (e.state !=null) {
+    if (e.state != null && e.state.q != null) {
         searchBox.value = e.state.q;
-        handleFormSubmit().then();
+        if (typeof window.handleFormSubmit === 'function') window.handleFormSubmit();
     }
 };
 
@@ -130,53 +119,6 @@ titleClear.addEventListener("dblclick", function() {
 	dpdPane.innerHTML = ""; 
 });
 
-/// DELETE THE TOUCH AND TAP DOUBLE CLICK FROM THIS FILE
-/// moved to extra.js
-
-// Original double-click functionality
-
-dpdPane.addEventListener("dblclick", processSelection);
-
-historyPane.addEventListener("dblclick", processSelection);
-
-// Add touch double-tap functionality
-let lastTap = 0;
-const doubleTapDelay = 300; // milliseconds between taps to count as double-tap
-
-
-dpdPane.addEventListener("touchend", handleTouchEnd);
-historyPane.addEventListener("touchend", handleTouchEnd);
-
-
-function handleTouchEnd(event) {
-    const currentTime = new Date().getTime();
-    const tapLength = currentTime - lastTap;
-
-    // Detect double-tap
-    if (tapLength < doubleTapDelay && tapLength > 0) {
-        // Prevent default behavior (like zooming)
-        event.preventDefault();
-
-        // Get the selection and process it
-        const selection = window.getSelection().toString();
-        if (selection.trim() !== "") {
-          searchBox.value = selection;
-            handleFormSubmit();
-        }
-    }
-
-    lastTap = currentTime;
-
-}
-
-function processSelection() {
-
-    const selection = window.getSelection().toString();
-    if (selection.trim() !== "") {
-        searchBox.value = selection;
-        handleFormSubmit();
-    }
-}
 
 
 //// font size ////
@@ -215,213 +157,11 @@ function decreaseFontSize() {
     saveFontSize()
 }
 
-//// enter or click button to search 
 
-searchForm.addEventListener("submit", handleFormSubmit);
-searchButton.addEventListener("submit", handleFormSubmit);
 
-//// submit search
-let isSubmitting = false; // Флаг для отслеживания состояния отправки
 
-async function handleFormSubmit(event) {
-    if (event) {
-        event.preventDefault();
-    }
-    
-    // Если уже выполняется, игнорируем новый вызов
-    if (isSubmitting) {
-        return;
-    }
-    
-    let searchQuery = searchBox.value || "";
-    
-        // Очистка текста при шейринге
-    if (searchQuery.includes('http://') || searchQuery.includes('https://')) {
-        // Берем только первое слово до пробела/URL
-        searchQuery = searchQuery.split(/\s+/)[0];
-    }
-    
-    // Удаляем все кавычки (двойные и одинарные)
-    searchQuery = searchQuery.replace(/["']/g, '');
 
-    
-    
-    if (searchQuery.trim() !== "") {
-        try {
-            isSubmitting = true; // Устанавливаем флаг
-            
-            // Закрываем выпадающий список автоподсказок
-            if ($("#search-box").hasClass("ui-autocomplete-input")) {
-                $("#search-box").autocomplete("close");
-            }
-            
-            showSpinner(); 
-            addToHistory(searchQuery);
-            
-            // Adjust the search URL based on the current language
-            let searchUrl = '/search_json';
-            if (language === 'ru') {
-                searchUrl = '/ru/search_json';
-            }
-            
-            const response = await fetch(`${searchUrl}?q=${encodeURIComponent(searchQuery)}`);
-            const data = await response.json();
 
-            //// add the summary_html
-            if (data.summary_html.trim() != "") {
-                if (language === 'en') {
-                    summaryResults.innerHTML = "<h3>Summary</h3>";
-                } else {
-                    summaryResults.innerHTML = "<h3>Сводка</h3>";
-                }
-                summaryResults.innerHTML += data.summary_html; 
-                summaryResults.innerHTML += "<hr>";
-            } else {
-                summaryResults.innerHTML = "";
-            }
-            showHideSummary();
-
-            //// add dpd_html
-            const dpdDiv = document.createElement("div");
-            dpdDiv.innerHTML += data.dpd_html;
-            
-            //// niggahita toggle
-            if (niggahitaToggle.checked) {
-                niggahitaUp(dpdDiv);
-            }
-    
-            //// grammar button toggle
-            if (grammarToggle.checked) {
-                const grammarButtons = dpdDiv.querySelectorAll('[name="grammar-button"]');
-                const grammarDivs = dpdDiv.querySelectorAll('[name="grammar-div"]');
-                grammarButtons.forEach(button => {
-                    button.classList.add("active");
-                });
-                grammarDivs.forEach(div => {
-                    div.classList.remove("hidden");
-                });
-            };
-    
-            //// example button toggle
-            if (exampleToggle.checked) {
-                const exampleButtons = dpdDiv.querySelectorAll('[name="example-button"]');
-                const exampleDivs = dpdDiv.querySelectorAll('[name="example-div"]');
-                exampleButtons.forEach(button => {
-                    button.classList.add("active");
-                });
-                exampleDivs.forEach(div => {
-                    div.classList.remove("hidden");
-                });
-            };
-
-            dpdResults.innerHTML = dpdDiv.innerHTML;
-            dpdResultsContent = dpdDiv.innerHTML;
-
-//rewriteLinksWhenIdle();  
-
-            //// sandhi button toggle
-            showHideSandhi();
-            
-            populateHistoryBody();
-   
- //************************** 
- // добавлено чтобы починить проблему с неожиданным скроллом
- //****************************
-
-if (!window.location.href.includes('search_html')) {
-    dpdPane.focus();
-    window.scrollTo({ top: 0, behavior: "smooth" });
-    dpdPane.scrollTo({ top: 0, behavior: "smooth" });
-}
-
-            // Update the URL with the search query
-            let url = `/?q=${encodeURIComponent(searchQuery)}`;
-            if (language === 'ru') {
-                url = `/ru/?q=${encodeURIComponent(searchQuery)}`;
-            }            
-            history.pushState({ q: searchQuery }, "", url);
-            
-        } catch (error) {
-            console.error("Error fetching data:", error);
-        } finally {
-            isSubmitting = false; // Сбрасываем флаг в любом случае
-        }
-    } else {
-    // Clear the URL and reset results if search query is empty
-    if (language === 'en') {
-        history.pushState({ q: '' }, "", "/");
-    } else if (language === 'ru') {
-        history.pushState({ q: '' }, "", "/ru/");
-    }
-    
-    // Reset UI to initial state
-    dpdResults.innerHTML = startMessage;
-    summaryResults.innerHTML = "";
-    hideSpinner();
-}
-    
-}
-
-//// url query param
-
-function applyUrlQuery() {
-    const query = getQueryVariable('q');
-    if(!query) return;
-    searchBox.value = query;
-    window.history.replaceState({'q': query}, '', '?q='+encodeURIComponent(query));
-    handleFormSubmit().then();
-}
-
-//// populate history
-
-function addToHistory(word) {
-    let historyList = JSON.parse(localStorage.getItem("history-list")) || [];
-    const index = historyList.indexOf(word);
-    if (index !== -1) {
-        historyList.splice(index, 1);
-    }
-    historyList.unshift(word);
-    if (historyList.length > 50) {
-        historyList.pop();
-    }
-    localStorage.setItem("history-list", JSON.stringify(historyList));
-    if (getQueryVariable('q') !== word) {
-        window.history.pushState({'q': word}, '', '?q='+encodeURIComponent(word));
-    }
-    toggleClearHistoryButton()
-}
-
-function populateHistoryBody() {
-    let historyList = JSON.parse(localStorage.getItem("history-list")) || [];
-    let listElement = document.createElement("ul");
-    listElement.id = "history-list";
-
-    historyList.forEach(item => {
-        let listItem = document.createElement("li");
-        listItem.textContent = item;
-        listElement.appendChild(listItem);
-    });
-
-    historyListPane.innerHTML = ""; 
-    historyListPane.appendChild(listElement);
-}
-
-document.getElementById("clear-history-button").addEventListener("click", function() {
-    localStorage.removeItem("history-list");
-    document.getElementById("history-list").innerHTML = "";
-    toggleClearHistoryButton()
-});
-
-function toggleClearHistoryButton() {
-    let historyList = JSON.parse(localStorage.getItem("history-list")) || [];
-    let clearHistoryButton = document.getElementById("clear-history-button");
-
-    if (historyList.length === 0) {
-        clearHistoryButton.style.display = "none";
-    } else {
-        clearHistoryButton.style.display = "inline-block";
-    }
-}
 
 
 //// save settings on toggle
@@ -452,15 +192,6 @@ function toggleTheme(event) {
 //// Event listener for theme toggle
 themeToggle.addEventListener("change", toggleTheme);
 
-//// Function to apply the saved theme state
-function applySavedTheme() {
-    var savedTheme = localStorage.getItem("theme");
-    if (savedTheme) {
-        document.body.classList.remove("dark-mode", "light-mode"); // Remove both classes
-        document.body.classList.add(savedTheme + "-mode"); // Add the saved theme class
-        themeToggle.checked = savedTheme === "dark"; // Sync toggle state
-    }
-}
 
 //// toggle sans / serif
 
@@ -592,13 +323,11 @@ sandhiToggle.addEventListener("change", function() {
 });
 
 function showHideSandhi() {
-    if (sandhiToggle.checked) {
-        dpdResults.innerHTML = dpdResultsContent;
-    } else {
-        dpdResults.innerHTML = dpdResultsContent.replace(/'/g, "");
-        
-    }
+    const results = document.getElementById('dpd-results');
+    if (!results) return;
+    results.classList.toggle('hide-apostrophes', !sandhiToggle.checked);
 }
+window.showHideSandhi = showHideSandhi;
 
 //// text to unicode
 
