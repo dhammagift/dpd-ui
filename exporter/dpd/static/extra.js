@@ -1933,7 +1933,7 @@ function initExtSlotDragDrop(container) {
         removeSlotDraggable();
     });
 }
-function appendIframeDict(dictCode, title, targetUrl) {
+function appendIframeDict(dictCode, title, targetUrl, allowPopups = false) {
     const slot = document.getElementById(`ext-slot-${dictCode}`);
     if (!slot) return;
 
@@ -1944,16 +1944,24 @@ function appendIframeDict(dictCode, title, targetUrl) {
     if (!content) return;
 
     const iframeAttr = content.style.display === 'none' ? `data-src="${targetUrl}"` : `src="${targetUrl}"`;
-    content.innerHTML = `<iframe ${iframeAttr} style="width: 100%; height: 450px; border: 2px solid #1a8bdb; border-radius: 8px; background-color: #fff;" sandbox="allow-scripts allow-same-origin" title="${title}"></iframe>`;
+    
+    let sandboxAttr = "allow-scripts allow-same-origin";
+    if (allowPopups) {
+        sandboxAttr += " allow-popups allow-popups-to-escape-sandbox";
+    }
+
+    content.innerHTML = `<iframe ${iframeAttr} style="width: 100%; height: 450px; border: 2px solid #1a8bdb; border-radius: 8px; background-color: #fff;" sandbox="${sandboxAttr}" title="${title}"></iframe>`;
 }
 
 function appendTripitaka(query) {
     const readPath = window.isRu ? '/r/' : '/read/';
     const linkBase = `https://dhamma.gift${readPath}?q={sutta_id}%23{segment_num}`;
-    appendIframeDict('tripitaka', 'Sutta-Vinaya Definitions and Similies', `https://tripitaka-mcp.com/read/embed/define?term=${encodeURIComponent(query)}&theme=dark&link_base=${linkBase}`);
+    // Передаем true четвертым аргументом для включения флага allowPopups
+    appendIframeDict('tripitaka', 'Sutta-Vinaya Definitions and Similies', `https://tripitaka-mcp.com/read/embed/define?term=${encodeURIComponent(query)}&theme=dark&link_base=${linkBase}`, true);
 }
 
 function appendGandhari(query) {
+    // Здесь флаг не передается, используется значение по умолчанию (false)
     appendIframeDict('gandhari', 'Gandhari Dictionary', `https://gandhari.org/dictionary?section=dop&search=${encodeURIComponent(query)}`);
 }
 
