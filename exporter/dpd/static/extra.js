@@ -542,15 +542,21 @@ async function handleClientSearch(rawQuery) {
         const firstHeading = resultsContainer ? resultsContainer.querySelector('h3.dpd') : null;
         const hasRealEntry = resultsContainer ? resultsContainer.querySelector('.dpd.summary, .button-box') !== null : false;
         
+        const tripitakaSlot = document.getElementById('ext-slot-tripitaka');
         const gandhariSlot = document.getElementById('ext-slot-gandhari');
         const ptsSlot = document.getElementById('ext-slot-pts');
-        
+
         if (firstHeading && hasRealEntry) {
             const normalizedQuery = firstHeading.textContent.replace(/\s+\d+(\.\d+)*$/, '').trim();
+            appendTripitaka(normalizedQuery);
             appendGandhari(normalizedQuery);
             appendPts(normalizedQuery);
             appendWisdomLib(normalizedQuery);
         } else {
+            if (tripitakaSlot) {
+                const c = tripitakaSlot.querySelector('.ext-dict-content');
+                if (c) c.innerHTML = '';
+            }
             if (gandhariSlot) {
                 const c = gandhariSlot.querySelector('.ext-dict-content');
                 if (c) c.innerHTML = '';
@@ -1744,7 +1750,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // ======== КОНФИГУРАЦИЯ ВНЕШНИХ СЛОВАРЕЙ ========
 // Порядок элементов в массиве определяет порядок отображения на странице.
-const EXTERNAL_DICTS_ORDER = ['dpd', 'gandhari', 'pts', 'wisdomlib', 'sanskrit'];
+const EXTERNAL_DICTS_ORDER = ['dpd', 'tripitaka', 'gandhari', 'pts', 'wisdomlib', 'sanskrit'];
 
 // Создаёт слот для DPD, перенося #dpd-results и #summary-results внутрь
 function createDpdSlot() {
@@ -1772,7 +1778,7 @@ function createDpdSlot() {
 function _initExtSlots(extContainer) {
     const extStates = JSON.parse(localStorage.getItem('extDictStates') || '{}');
     let statesChanged = false;
-    for (const code of ['gandhari', 'pts', 'wisdomlib']) {
+    for (const code of ['tripitaka', 'gandhari', 'pts', 'wisdomlib']) {
         if (!(code in extStates)) { extStates[code] = true; statesChanged = true; }
     }
     if (statesChanged) localStorage.setItem('extDictStates', JSON.stringify(extStates));
@@ -1784,6 +1790,8 @@ function _initExtSlots(extContainer) {
     finalSlotOrder.forEach(dictName => {
         if (dictName === 'dpd') {
             extContainer.appendChild(createDpdSlot());
+        } else if (dictName === 'tripitaka') {
+            extContainer.appendChild(_createIframeDictSlot('tripitaka', 'Sutta-Vinaya Definitions and Similies', 'https://tripitaka-mcp.com/read/embed/define?theme=dark', 'margin-bottom: 15px; margin-top: 15px;'));
         } else if (dictName === 'gandhari') {
             extContainer.appendChild(_createIframeDictSlot('gandhari', 'Gandhari Dictionary', 'https://gandhari.org/dictionary?section=dop', 'margin-bottom: 15px; margin-top: 15px;'));
         } else if (dictName === 'pts') {
@@ -1937,6 +1945,12 @@ function appendIframeDict(dictCode, title, targetUrl) {
 
     const iframeAttr = content.style.display === 'none' ? `data-src="${targetUrl}"` : `src="${targetUrl}"`;
     content.innerHTML = `<iframe ${iframeAttr} style="width: 100%; height: 450px; border: 2px solid #1a8bdb; border-radius: 8px; background-color: #fff;" sandbox="allow-scripts allow-same-origin" title="${title}"></iframe>`;
+}
+
+function appendTripitaka(query) {
+    const readPath = window.isRu ? '/r/' : '/read/';
+    const linkBase = `https://dhamma.gift${readPath}?q={sutta_id}%23{segment_num}`;
+    appendIframeDict('tripitaka', 'Sutta-Vinaya Definitions and Similies', `https://tripitaka-mcp.com/read/embed/define?term=${encodeURIComponent(query)}&theme=dark&link_base=${linkBase}`);
 }
 
 function appendGandhari(query) {
@@ -2169,6 +2183,10 @@ document.addEventListener('DOMContentLoaded', function() {
     if (typeof initStartMessage === 'function') {
         const lang = document.documentElement.lang || 'en';
         initStartMessage(lang);
+        const dpdResultsEl = document.getElementById('dpd-results');
+        if (dpdResultsEl && dpdResultsEl.innerHTML.trim() === '') {
+            dpdResultsEl.innerHTML = startMessage;
+        }
     }
     populateHistoryBody();
     toggleClearHistoryButton();

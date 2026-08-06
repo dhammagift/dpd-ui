@@ -1,6 +1,6 @@
 {
-  "short_name": "DGift DPD",
-  "name": "DPD Dhamma.Gift",
+  "short_name": "DDG",
+  "name": "Dict.Dhamma.Gift",
   "icons": [
     {
       "src": "/static/dpd.ico",
@@ -8,9 +8,9 @@
       "sizes": "16x16"
     },
     {
-      "src": "/static/dpd-logo.svg",
+      "src": "/static/dg-logo.svg",
       "type": "image/svg+xml",
-      "sizes": "192x192 512x512"  
+      "sizes": "192x192 512x512"
     }
   ],
   "start_url": "/?source=pwa",
@@ -18,7 +18,7 @@
   "display": "standalone",
   "background_color": "#E4F8FF",
   "theme_color": "#00131B",
-  "description": "DPD Online Pali-English dictionary with interface improvements.",
+  "description": "Dict.Dhamma.Gift — a Pāḷi multi-dictionary combining DPD, Gandhari, PTS, Sanskrit and Sutta-Vinaya definitions in one place.",
   "lang": "en",
   "share_target": {
     "action": "/",
