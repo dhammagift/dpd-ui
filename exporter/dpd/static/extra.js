@@ -1791,7 +1791,7 @@ function _initExtSlots(extContainer) {
         if (dictName === 'dpd') {
             extContainer.appendChild(createDpdSlot());
         } else if (dictName === 'tripitaka') {
-            extContainer.appendChild(_createIframeDictSlot('tripitaka', 'Sutta-Vinaya Definitions and Similies', 'https://tripitaka-mcp.com/read/embed/define?theme=dark', 'margin-bottom: 15px; margin-top: 15px;'));
+            extContainer.appendChild(_createIframeDictSlot('tripitaka', 'Sutta-Vinaya Definitions and Similies', 'https://tripitaka-mcp.com/read/embed/define', 'margin-bottom: 15px; margin-top: 15px;'));
         } else if (dictName === 'gandhari') {
             extContainer.appendChild(_createIframeDictSlot('gandhari', 'Gandhari Dictionary', 'https://gandhari.org/dictionary?section=dop', 'margin-bottom: 15px; margin-top: 15px;'));
         } else if (dictName === 'pts') {
@@ -1956,9 +1956,14 @@ function appendIframeDict(dictCode, title, targetUrl, allowPopups = false) {
 function appendTripitaka(query) {
     const readPath = window.isRu ? '/r/' : '/read/';
     const linkBase = `https://dhamma.gift${readPath}?q={sutta_id}%23{segment_num}`;
-    // Передаем true четвертым аргументом для включения флага allowPopups
-    appendIframeDict('tripitaka', 'Sutta-Vinaya Definitions and Similies', `https://tripitaka-mcp.com/read/embed/define?term=${encodeURIComponent(query)}&theme=dark&link_base=${linkBase}`, true);
+    
+    // Получаем текущую тему из настроек
+    const currentTheme = localStorage.getItem('theme') === 'dark' ? 'dark' : 'light';
+    
+    // Передаем динамическую тему в URL
+    appendIframeDict('tripitaka', 'Sutta-Vinaya Definitions and Similies', `https://tripitaka-mcp.com/read/embed/define?term=${encodeURIComponent(query)}&theme=${currentTheme}&link_base=${linkBase}`, true);
 }
+
 
 function appendGandhari(query) {
     // Здесь флаг не передается, используется значение по умолчанию (false)
