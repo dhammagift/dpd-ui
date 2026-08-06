@@ -970,10 +970,10 @@ document.addEventListener('click', function(event) {
 
 // Функция для обновления заголовка вкладки
 function updateDocumentTitle(query) {
-  const baseTitle = "DG Digital Pali Dictionary";
+  const baseTitle = "Dict.Dhamma.Gift";
   
   if (query && query.trim() !== "") {
-    document.title = query.trim() + " — DG DPD";
+    document.title = query.trim() + " — Dict.DG";
   } else {
     document.title = baseTitle;
   }
