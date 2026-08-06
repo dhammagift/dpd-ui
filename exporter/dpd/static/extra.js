@@ -526,9 +526,8 @@ async function handleClientSearch(rawQuery) {
             'summary-toggle',
             'grammar-toggle',
             'example-toggle',
-            'sandhi-toggle',
-            'sanskrit-toggle'
-        ];
+            'sandhi-toggle'
+            ];
         
         togglesToUpdate.forEach(toggleId => {
             const toggleElement = document.getElementById(toggleId);
@@ -1009,27 +1008,6 @@ let draggedDict = null;
 document.addEventListener("DOMContentLoaded", () => {
     const searchForm = document.getElementById('search-form');
     const searchInput = document.getElementById('search-box');
-    const sanskritToggle = document.getElementById('sanskrit-toggle');
-
-    if (sanskritToggle) {
-        const savedState = localStorage.getItem('sanskritToggleState');
-        if (savedState !== null) {
-            sanskritToggle.checked = savedState === 'true';
-        }
-        
-        sanskritToggle.addEventListener('change', () => {
-            localStorage.setItem('sanskritToggleState', sanskritToggle.checked);
-            const container = document.getElementById('sanskrit-results');
-            
-            if (sanskritToggle.checked) {
-                if (container) container.style.display = 'block';
-                lastSanskritQuery = ''; 
-                runSanskritSearch();
-            } else {
-                if (container) container.style.display = 'none';
-            }
-        });
-    }
 
     if (searchInput && searchInput.value.trim()) {
         runSanskritSearch();
@@ -1353,14 +1331,8 @@ function showEmptyMessage(container, isRu, query, headerObj) {
 
 async function fetchSanskrit(query, isFallback = false) {
     const slot = document.getElementById('ext-slot-sanskrit');
-    const toggle = document.getElementById('sanskrit-toggle');
 
     if (!slot) return;
-
-    if (toggle && !toggle.checked) {
-        slot.style.display = 'none';
-        return;
-    }
 
     const extStates = JSON.parse(localStorage.getItem('extDictStates') || '{}');
     if (extStates['sanskrit'] === true) return;
