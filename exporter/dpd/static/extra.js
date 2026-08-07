@@ -2186,3 +2186,70 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 });
+
+document.addEventListener('DOMContentLoaded', function() {
+    const logoElements = document.querySelectorAll('.alogo');
+    const searchBox = document.getElementById('search-box');
+    let pressTimer;
+
+    if (logoElements.length === 0) return;
+
+    logoElements.forEach(el => {
+        // Обычный клик (ЛКМ / Короткий тап)
+        el.addEventListener('click', function(e) {
+            if (el.dataset.longpressed === 'true') {
+                el.dataset.longpressed = 'false';
+                e.preventDefault();
+                return;
+            }
+
+            e.preventDefault();
+            
+            // Очищаем инпут
+            if (searchBox) {
+                searchBox.value = '';
+            }
+
+            // Переход на главную с учетом текущего языка
+            const base = typeof getAppBase === 'function' ? getAppBase() : '/';
+            const onRu = /\/ru(\/|$)/.test(window.location.pathname);
+            const targetUrl = onRu ? base.replace(/\/$/, '') + '/ru/' : base;
+            
+            window.location.href = targetUrl;
+        });
+
+        // Правый клик мыши
+        el.addEventListener('contextmenu', function(e) {
+            e.preventDefault();
+            if (typeof toggleLanguage === 'function') {
+                toggleLanguage();
+            }
+        });
+
+        // Долгое нажатие
+        const startPress = function(e) {
+            if (e.type === 'mousedown' && e.button !== 0) return;
+            
+            el.dataset.longpressed = 'false';
+            
+            pressTimer = window.setTimeout(function() {
+                el.dataset.longpressed = 'true';
+                if (typeof toggleLanguage === 'function') {
+                    toggleLanguage();
+                }
+            }, 600);
+        };
+
+        const cancelPress = function() {
+            clearTimeout(pressTimer);
+        };
+
+        el.addEventListener('mousedown', startPress);
+        el.addEventListener('touchstart', startPress, { passive: true });
+        
+        el.addEventListener('mouseup', cancelPress);
+        el.addEventListener('mouseleave', cancelPress);
+        el.addEventListener('touchend', cancelPress);
+        el.addEventListener('touchmove', cancelPress, { passive: true });
+    });
+});

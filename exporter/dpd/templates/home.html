@@ -43,17 +43,18 @@
 <body>
 
 
+
+
+
   <div id="dpd-tab" class="tab-content active">
     <div class="header-pane">
-      <div class="logo-title">
-        <a href="javascript:void(0)" title="toggle En/Ru (Alt+1 or Ctrl+1)" onclick="changeLanguage('ru')"
-          class="alogo"><img src="static/dg-logo.svg" alt="dg logo" id="header-image" class="header-image"></a>
-        <h2 class="title" id="title-clear"><a href="/" class="alogo">Dict</a></h2>
-      </div>
-
-      <div class="header-lang-button">
-        <button class="round-button" title="toggle Language En/Ru (Alt+1 or Ctrl+1)" onclick="changeLanguage('ru')"><img src="static/dg-logo.svg" alt="dg logo" class="header-image"></button>
-      </div>
+<div class="logo-title">
+  <a href="javascript:void(0)" title="Home / Change language (Long press or Right-click)" class="alogo" id="logo-link">
+    <img src="static/dg-logo.svg" alt="dg logo" id="header-image" class="header-image">
+  </a>
+ <h2 class="title" id="title-clear">
+      <a href="javascript:void(0)" class="alogo" title="Main / Change language (long tap or right click)">Dict</a>
+    </h2></div>
 
       <div class="dict-dropdown-container">
         <button class="round-button dict-dropdown-toggle" title="Open dictionaries"
@@ -90,15 +91,33 @@
         </div>
       </form>
 
-      <!-- Новые иконки для десктопа вынесены отдельно и прижаты вправо -->
-      <div class="desktop-extra-icons">
-        <button class="desktop-icon-btn" type="button" onclick="toggleDesktopHistoryBtn()" title="Toggle History (Alt + H)">
-            <img src="static/clock-rotate-left.svg" alt="History" class="header-icon-img">
-        </button>
-        <button class="desktop-icon-btn" type="button" onclick="toggleDesktopSettingsBtn()" title="Toggle Settings (Alt + S)">
-            <img src="static/gear.svg" alt="Settings" class="header-icon-img">
-        </button>
-      </div>
+<div class="desktop-extra-icons">
+  <button class="desktop-icon-btn" type="button" onclick="toggleDesktopHistoryBtn()" title="Toggle History (Alt + H)">
+      <img src="static/clock-rotate-left.svg" alt="History" class="header-icon-img">
+  </button>
+  <button class="desktop-icon-btn" type="button" onclick="toggleDesktopSettingsBtn()" title="Toggle Settings (Alt + S)">
+      <img src="static/gear.svg" alt="Settings" class="header-icon-img">
+  </button>
+      <button class="desktop-icon-btn" type="button" onclick="changeLanguage('ru')" title="Language / Язык (Alt + 1)">
+          <span style="font-size: 1.2em; line-height: 1;">🌐</span>
+      </button>
+</div>
+
+
+<div class="desktop-extra-icons">
+  <button class="desktop-icon-btn" type="button" onclick="toggleDesktopHistoryBtn()" title="Toggle History (Alt + H)">
+      <img src="static/clock-rotate-left.svg" alt="History" class="header-icon-img">
+  </button>
+  <button class="desktop-icon-btn" type="button" onclick="toggleDesktopSettingsBtn()" title="Toggle Settings (Alt + S)">
+      <img src="static/gear.svg" alt="Settings" class="header-icon-img">
+  </button>
+  
+  <div class="desktop-lang-container lang-btn-desktop">
+      <button class="desktop-icon-btn" type="button" onclick="toggleLanguage()"  title="Язык / Language (Alt + 1)">
+          <span style="font-size: 1.2em; line-height: 1;">🌐</span>
+      </button>
+  </div></div>
+
     </div>
     <div class="main-pane" id="main-pane">
       <div class="history-pane" id="history-pane">
