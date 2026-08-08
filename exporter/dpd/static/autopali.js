@@ -226,6 +226,11 @@ document.addEventListener('DOMContentLoaded', function() {
            handleFormSubmit();
 
                     return false;
+      }
+            }).on("keydown", function(event) {
+                // ПРИНУДИТЕЛЬНОЕ ЗАКРЫТИЕ ПО ENTER
+                if (event.keyCode === 13) {
+                    $(this).autocomplete("close");
                 }
             }).autocomplete("widget").addClass("fixed-height");
         }
