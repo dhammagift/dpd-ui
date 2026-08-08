@@ -1554,6 +1554,13 @@ const ENDPOINTS = {
 
 function cleanQueryParam(original) {
     let cleaned = original.replace(/https?:\/\/\S+/g, '');
+    
+    // Отсекаем всё до символа корня включительно
+    const rootIndex = cleaned.indexOf('√');
+    if (rootIndex !== -1) {
+        cleaned = cleaned.substring(rootIndex + 1);
+    }
+    
     cleaned = cleaned.replace(/["'()[\]·]/g, '');
     cleaned = cleaned.replace(/\s+/g, ' ');
     cleaned = cleaned.trim().toLowerCase();
