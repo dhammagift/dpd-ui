@@ -546,7 +546,10 @@ async function handleClientSearch(rawQuery) {
         const ptsSlot = document.getElementById('ext-slot-pts');
 
         if (firstHeading && hasRealEntry) {
-            const normalizedQuery = firstHeading.textContent.replace(/\s+\d+(\.\d+)*$/, '').trim();
+            // Очищаем запрос для сторонних словарей от цифр, слова Root и символов корня
+            let normalizedQuery = firstHeading.textContent.replace(/\s+\d+(\.\d+)*$/, '').trim();
+            normalizedQuery = normalizedQuery.replace(/root:?/gi, '').replace(/[√✓]/g, '').trim();
+            
             appendTripitaka(normalizedQuery);
             appendGandhari(normalizedQuery);
             appendPts(normalizedQuery);
@@ -1555,13 +1558,17 @@ const ENDPOINTS = {
 function cleanQueryParam(original) {
     let cleaned = original.replace(/https?:\/\/\S+/g, '');
     
+    // Удаляем слово "Root:" или "Root", чтобы оно не улетало в словари
+    cleaned = cleaned.replace(/root:?/gi, '');
+    
     // Отсекаем всё до символа корня включительно
     const rootIndex = cleaned.indexOf('√');
     if (rootIndex !== -1) {
         cleaned = cleaned.substring(rootIndex + 1);
     }
     
-    cleaned = cleaned.replace(/["'()[\]·]/g, '');
+    // Включаем знак корня и возможные галочки в список удаляемых символов
+    cleaned = cleaned.replace(/["'()[\]·√✓]/g, '');
     cleaned = cleaned.replace(/\s+/g, ' ');
     cleaned = cleaned.trim().toLowerCase();
     
@@ -1713,6 +1720,10 @@ document.addEventListener('DOMContentLoaded', () => {
     window.handleFormSubmit = function(event) {
         if (event) event.preventDefault();
         const searchBox = document.getElementById('search-box');
+        if (searchBox) {
+            // Снимаем фокус с поля, чтобы закрыть зависший список подсказок при Enter
+            searchBox.blur(); 
+        }
         if (searchBox && searchBox.value) {
             handleClientSearch(searchBox.value);
             if (typeof runSanskritSearch === 'function') {
