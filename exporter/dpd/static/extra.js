@@ -452,9 +452,6 @@ function updateLink(el, baseUrl) {
     query = params.get('q') || '';
   }
 
-  // если вообще нечего подставлять — выходим
- // if (!query) return;
-
   const url = new URL(baseUrl);
   url.searchParams.set('q', query);
 
@@ -554,6 +551,9 @@ async function handleClientSearch(rawQuery) {
             appendGandhari(normalizedQuery);
             appendPts(normalizedQuery);
             appendWisdomLib(normalizedQuery);
+            
+            // Синхронный вызов поиска санскрита
+            runSanskritSearch();
         } else {
             if (tripitakaSlot) {
                 const c = tripitakaSlot.querySelector('.ext-dict-content');
@@ -571,6 +571,14 @@ async function handleClientSearch(rawQuery) {
             if (wisdomlibSlot) {
                 const c = wisdomlibSlot.querySelector('.ext-dict-content');
                 if (c) c.innerHTML = '';
+            }
+            const sanskritSlot = document.getElementById('ext-slot-sanskrit');
+            if (sanskritSlot) {
+                const c = sanskritSlot.querySelector('.ext-dict-content');
+                if (c) {
+                    const res = c.querySelector('#sanskrit-results');
+                    if (res) res.innerHTML = '';
+                }
             }
         }
 
@@ -1004,100 +1012,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // extra.js — Чистый скрипт для вашей HTML разметки (Блок Санскрита)
 
-let lastSanskritQuery = '';
-let waitingForFallback = null; 
 let draggedDict = null; 
+let lastSanskritQuery = '';
 
 document.addEventListener("DOMContentLoaded", () => {
-    const searchForm = document.getElementById('search-form');
-    const searchInput = document.getElementById('search-box');
-
-    if (searchInput && searchInput.value.trim()) {
-        runSanskritSearch();
-    }
-
-    if (searchForm) {
-        searchForm.addEventListener('submit', (e) => {
-            setTimeout(runSanskritSearch, 200);
-        });
-    }
-
-    document.addEventListener('click', (e) => {
-        const moveBtn = e.target.closest('.dict-move-up, .dict-move-down');
-        if (moveBtn) {
-            e.stopPropagation(); 
-            const wrapper = e.target.closest('.sanskrit-dict-wrapper');
-            const parent = wrapper.parentNode;
-            const isUp = moveBtn.classList.contains('dict-move-up');
-
-            if (isUp && wrapper.previousElementSibling && wrapper.previousElementSibling.classList.contains('sanskrit-dict-wrapper')) {
-                parent.insertBefore(wrapper, wrapper.previousElementSibling);
-            } else if (!isUp && wrapper.nextElementSibling && wrapper.nextElementSibling.classList.contains('sanskrit-dict-wrapper')) {
-                parent.insertBefore(wrapper.nextElementSibling, wrapper);
-            }
-            
-            saveDictOrder(parent);
-            return;
-        }
-
-        const dictHeader = e.target.closest('.sanskrit-dict-header');
-        if (dictHeader) {
-            const code = dictHeader.dataset.dictcode;
-            const content = document.getElementById(`sanskrit-content-${code}`);
-            const icon = dictHeader.querySelector('.dict-icon');
-            
-            if (content && icon) {
-                const isHidden = content.style.display === 'none';
-                content.style.display = isHidden ? 'block' : 'none';
-                icon.textContent = isHidden ? '▼' : '▶';
-                
-                let states = JSON.parse(localStorage.getItem('sanskritDictStates') || '{}');
-                states[code] = !isHidden; 
-                localStorage.setItem('sanskritDictStates', JSON.stringify(states));
-            }
-            return;
-        }
-
-        const toggleAllBtn = e.target.closest('#sanskrit-toggle-all');
-        if (toggleAllBtn) {
-            let states = JSON.parse(localStorage.getItem('sanskritDictStates') || '{}');
-            const headers = document.querySelectorAll('.sanskrit-dict-header');
-            
-            let anyOpen = false;
-            headers.forEach(h => {
-                const code = h.dataset.dictcode;
-                const content = document.getElementById(`sanskrit-content-${code}`);
-                if (content && content.style.display !== 'none') anyOpen = true;
-            });
-
-            headers.forEach(h => {
-                const code = h.dataset.dictcode;
-                const content = document.getElementById(`sanskrit-content-${code}`);
-                const icon = h.querySelector('.dict-icon');
-                
-                if (content && icon) {
-                    if (anyOpen) {
-                        content.style.display = 'none';
-                        icon.textContent = '▶';
-                        states[code] = true;
-                    } else {
-                        content.style.display = 'block';
-                        icon.textContent = '▼';
-                        states[code] = false;
-                    }
-                }
-            });
-            localStorage.setItem('sanskritDictStates', JSON.stringify(states));
-            return;
-        }
-
-        if (e.target.closest('#dpd-pane') || e.target.closest('#history-pane')) {
-            if (!e.target.closest('#sanskrit-results')) {
-                setTimeout(runSanskritSearch, 300);
-            }
-        }
-    });
-
     // --- Логика перетаскивания строго за ползунок ---
     
     // Включаем перетаскивание при нажатии на ползунок
@@ -1171,32 +1089,42 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         removeDraggable();
     });
+});
 
-    // Наблюдаем только #dpd-results, а не весь dpd-pane — элемент перемещается в ext-slot-dpd,
-    // но MutationObserver следует за узлом, а не за позицией в DOM.
-    const dpdResultsForObserver = document.getElementById('dpd-results');
-    if (dpdResultsForObserver) {
-        const observer = new MutationObserver(() => {
-            const dpdResults = document.getElementById('dpd-results');
-            if (!dpdResults) return;
+document.addEventListener('click', (e) => {
+    const moveBtn = e.target.closest('.dict-move-up, .dict-move-down');
+    if (moveBtn) {
+        e.stopPropagation(); 
+        const wrapper = e.target.closest('.sanskrit-dict-wrapper');
+        const parent = wrapper.parentNode;
+        const isUp = moveBtn.classList.contains('dict-move-up');
 
-            if (dpdResults.dataset.stale === 'true') {
-                dpdResults.dataset.stale = 'false';
-            }
+        if (isUp && wrapper.previousElementSibling && wrapper.previousElementSibling.classList.contains('sanskrit-dict-wrapper')) {
+            parent.insertBefore(wrapper, wrapper.previousElementSibling);
+        } else if (!isUp && wrapper.nextElementSibling && wrapper.nextElementSibling.classList.contains('sanskrit-dict-wrapper')) {
+            parent.insertBefore(wrapper.nextElementSibling, wrapper);
+        }
+        
+        saveDictOrder(parent);
+        return;
+    }
 
-            if (waitingForFallback) {
-                const query = waitingForFallback;
-                waitingForFallback = null;
-                const fallbackWord = getDpdSanskritFallback();
-
-                if (fallbackWord && fallbackWord.toLowerCase() !== query.toLowerCase()) {
-                    fetchSanskrit(fallbackWord, true);
-                } else {
-                    fetchSanskrit(query, true);
-                }
-            }
-        });
-        observer.observe(dpdResultsForObserver, { childList: true, subtree: true });
+    const dictHeader = e.target.closest('.sanskrit-dict-header');
+    if (dictHeader) {
+        const code = dictHeader.dataset.dictcode;
+        const content = document.getElementById(`sanskrit-content-${code}`);
+        const icon = dictHeader.querySelector('.dict-icon');
+        
+        if (content && icon) {
+            const isHidden = content.style.display === 'none';
+            content.style.display = isHidden ? 'block' : 'none';
+            icon.textContent = isHidden ? '▼' : '▶';
+            
+            let states = JSON.parse(localStorage.getItem('sanskritDictStates') || '{}');
+            states[code] = !isHidden; 
+            localStorage.setItem('sanskritDictStates', JSON.stringify(states));
+        }
+        return;
     }
 });
 
@@ -1216,35 +1144,20 @@ function runSanskritSearch() {
     const searchInput = document.getElementById('search-box');
     const query = searchInput ? searchInput.value.trim() : '';
 
-    if (query && query !== lastSanskritQuery) {
-        lastSanskritQuery = query;
-
-        const dpdResults = document.getElementById('dpd-results');
-        const isLoaded = dpdResults && dpdResults.dataset.stale === 'false' &&
-                         dpdResults.querySelector('h3.dpd, .dpd.summary, .button-box');
-
-        if (isLoaded) {
-            // DPD уже загружен — сразу берём Sanskrit-эквивалент
-            waitingForFallback = null;
-            const fallbackWord = getDpdSanskritFallback();
-            if (fallbackWord && fallbackWord.toLowerCase() !== query.toLowerCase()) {
-                fetchSanskrit(fallbackWord);
-            } else {
-                fetchSanskrit(query);
-            }
-        } else {
-            // Ждём загрузки DPD через MutationObserver, показываем спиннер
-            waitingForFallback = query;
-            const container = document.getElementById('sanskrit-results');
-            if (container) {
-                container.innerHTML = `<div style="color: #666; padding: 5px;">${getUiText('loading')}</div>`;
-            }
-        }
-    } else if (!query && lastSanskritQuery !== '') {
+    if (!query) {
         lastSanskritQuery = '';
-        waitingForFallback = null;
         const container = document.getElementById('sanskrit-results');
         if (container) container.innerHTML = '';
+        return;
+    }
+
+    const fallbackWord = getDpdSanskritFallback();
+    const searchWord = (fallbackWord && fallbackWord.toLowerCase() !== query.toLowerCase()) ? fallbackWord : query;
+    const isFallback = (searchWord !== query);
+
+    if (searchWord !== lastSanskritQuery) {
+        lastSanskritQuery = searchWord;
+        fetchSanskrit(searchWord, isFallback, query);
     }
 }
 
@@ -1281,58 +1194,53 @@ function highlightQuery(html, query) {
 
 
 function getDpdSanskritFallback() {
-    const thElements = document.querySelectorAll('#dpd-results th');
-    for (let th of thElements) {
-        const headerText = th.textContent.trim().toLowerCase();
+    const dpdResults = document.getElementById('dpd-results');
+    if (!dpdResults) return null;
+
+    let sanskritWord = null;
+    let sanskritRoot = null;
+
+    const rows = dpdResults.querySelectorAll('tr');
+    
+    for (let row of rows) {
+        const th = row.querySelector('th');
+        const td = row.querySelector('td');
+        if (!th || !td) continue;
+
+        const headerText = th.textContent.toLowerCase().replace(/[:\.]/g, '').trim();
         
-        if (headerText === 'sanskrit' || headerText === 'санскрит' || headerText === 'sanskrit root') {
-            const td = th.nextElementSibling;
-            if (td && td.tagName.toLowerCase() === 'td') {
-                let text = td.innerText || td.textContent;
-                text = text.replace(/\[.*?\]/g, '').replace(/\(.*?\)/g, '').trim(); 
-                
-                const words = text.split(/[\s,;+\/\-]+/);
-                for (let word of words) {
-                    const cleanWord = word.replace(/[^a-zA-ZāīūñṭḍṇṃṁḷśṣḥṛṝḷḹĀĪŪÑṬḌṆṂṀḶŚṢḤṚṜḶḸ√]/g, '');
-                    const finalWord = cleanWord.replace('√', '');
-                    if (finalWord.length > 0) return finalWord;
-                }
+        // Читаем текст (даже из скрытых вкладок)
+        let tdText = td.textContent || '';
+        tdText = tdText.replace(/\[.*?\]/g, '').replace(/\(.*?\)/g, '').trim();
+
+        const words = tdText.split(/[\s,;+\/\-]+/);
+        let firstValidWord = null;
+
+        for (let word of words) {
+            // Оставляем только латиницу и индийскую диакритику
+            const cleanWord = word.replace(/[^a-zA-ZāīūñṅṭḍṇṃṁḷśṣḥṛṝḷḹĀĪŪÑṄṬḌṆṂṀḶŚṢḤṚṜḶḸ]/g, '');
+            if (cleanWord.length > 0) {
+                firstValidWord = cleanWord;
+                break;
             }
         }
+
+        if (!firstValidWord) continue;
+
+        if (headerText === 'sanskrit' || headerText === 'санскрит') {
+            sanskritWord = firstValidWord;
+        } else if (headerText === 'sanskrit root' || headerText === 'корень санскр') {
+            sanskritRoot = firstValidWord;
+        }
     }
+
+    if (sanskritWord) return sanskritWord;
+    if (sanskritRoot) return sanskritRoot;
+
     return null;
 }
 
-// ===== FIX: Sanskrit header/collapse (override old broken functions) =====
-function renderSanskritHeader(isRu, query, isFallback) {
-    let headerText = isRu ? 'Санскрит' : 'Sanskrit';
-    if (isFallback) {
-        const fallbackNotice = isRu ? `слово: <b>${query}</b>` : `слово: <b>${query}</b>`;
-        headerText += ` <span style="font-size: 0.8em; font-weight: normal; color: #666;">(${fallbackNotice})</span>`;
-    }
-    return `
-        <div style="display: flex; justify-content: space-between; align-items: center; font-size: 1.2em; margin-bottom: 10px; color: #1a8bdb; border-bottom: 1px solid rgba(26, 139, 219, 0.3); padding-bottom: 5px;">
-            <span style="font-weight: bold;">${headerText}</span>
-            <button id="sanskrit-toggle-all" style="background:none; border:none; color:#999; font-size: 1.1em; font-weight:bold; cursor:pointer;" title="Toggle All">
-                +/-
-            </button>
-        </div>`;
-}
-
-function showEmptyMessage(container, isRu, query, headerObj) {
-    const msgEmpty = isRu
-        ? `Санскритские параллели для «${query}» не найдены.`
-        : `No Sanskrit parallels found for "${query}".`;
-
-    container.innerHTML = `
-        ${headerObj.headerHtml}
-        <div class="ext-dict-content" style="display:${headerObj.displayStyle}; padding:10px; border:2px solid #1a8bdb; border-radius:8px; background:rgba(26,139,219,0.05);">
-            <div style="opacity:.7;">${msgEmpty}</div>
-        </div>
-    `;
-}
-
-async function fetchSanskrit(query, isFallback = false) {
+async function fetchSanskrit(query, isFallback = false, originalQuery = '') {
     const slot = document.getElementById('ext-slot-sanskrit');
 
     if (!slot) return;
@@ -1357,9 +1265,12 @@ async function fetchSanskrit(query, isFallback = false) {
     }
 
     const isRu = window.isRu;
-    if (!isFallback) {
-        container.innerHTML = `<div style="color: #666; padding: 5px;">${getUiText('loading')}</div>`;
+    let fallbackText = '';
+    if (isFallback) {
+        fallbackText = ` <span style="font-size: 0.85em; color: #999;">(${isRu ? 'поиск по' : 'fallback:'} <b>${query}</b>)</span>`;
     }
+    
+    container.innerHTML = `<div style="color: #666; padding: 5px;">${getUiText('loading')}${fallbackText}</div>`;
 
     try {
         const cacheKey = query.trim().toLowerCase();
@@ -1462,25 +1373,14 @@ async function fetchSanskrit(query, isFallback = false) {
         }
 
         if (!hasResults) {
-            if (!isFallback) {
-                const dpdResults = document.getElementById('dpd-results');
-                const isStale = dpdResults ? dpdResults.dataset.stale === 'true' : false;
-
-                if (isStale) {
-                    waitingForFallback = query;
-                    return;
-                } else {
-                    const fallbackWord = getDpdSanskritFallback();
-                    if (fallbackWord && fallbackWord.toLowerCase() !== query.toLowerCase()) {
-                        return fetchSanskrit(fallbackWord, true);
-                    }
-                }
-            }
             const msgEmpty = isRu
-                ? `Санскритские параллели для «${query}» не найдены.`
-                : `No Sanskrit parallels found for "${query}".`;
+                ? `Санскритские параллели для «${originalQuery || query}» не найдены.`
+                : `No Sanskrit parallels found for "${originalQuery || query}".`;
             container.innerHTML = `<div style="opacity: 0.7;">${msgEmpty}</div>`;
         } else {
+            if (isFallback) {
+                 htmlContent = `<div style="margin-bottom: 8px; font-size: 0.9em; color: #666;">${isRu ? 'Найдено по слову' : 'Found via fallback'}: <b>${query}</b></div>` + htmlContent;
+            }
             container.innerHTML = htmlContent;
         }
 
@@ -1539,11 +1439,6 @@ document.addEventListener('click', function(e) {
     localStorage.setItem('sanskritDictStates', JSON.stringify(states));
 }, true);
 
-
-function showEmptyMessage(container, isRu, query, headerHtml) {
-    const msgEmpty = isRu ? `Санскритские параллели для «${query}» не найдены.` : `No Sanskrit parallels found for "${query}".`;
-    container.innerHTML = headerHtml + `<div class="ext-dict-content"><div style="opacity: 0.7;">${msgEmpty}</div></div>`;
-}
 
 const sanskritApiCache = new Map();
 const SANSKRIT_CACHE_MAX = 200;
@@ -1670,25 +1565,51 @@ document.addEventListener('DOMContentLoaded', () => {
         if (historyPane) historyPane.removeEventListener("touchend", handleTouchEnd);
     }
 
-    // 2. Новая функция для обработки выделения (с поддержкой санскрита)
-    function executeSelectionSearch() {
+    // Вспомогательная функция: получает слово под пальцем по координатам экрана
+    function getWordAtPoint(x, y) {
+        let word = "";
+        if (document.caretRangeFromPoint) { // Webkit/Blink (Chrome, Android)
+            const range = document.caretRangeFromPoint(x, y);
+            if (range && range.startContainer.nodeType === Node.TEXT_NODE) {
+                const text = range.startContainer.textContent;
+                const offset = range.startOffset;
+                const start = text.lastIndexOf(' ', offset > 0 ? offset - 1 : 0);
+                let end = text.indexOf(' ', offset);
+                if (end === -1) end = text.length;
+                word = text.substring(start + 1, end).trim();
+            }
+        } else if (document.caretPositionFromPoint) { // Firefox
+            const pos = document.caretPositionFromPoint(x, y);
+            if (pos && pos.offsetNode.nodeType === Node.TEXT_NODE) {
+                const text = pos.offsetNode.textContent;
+                const offset = pos.offset;
+                const start = text.lastIndexOf(' ', offset > 0 ? offset - 1 : 0);
+                let end = text.indexOf(' ', offset);
+                if (end === -1) end = text.length;
+                word = text.substring(start + 1, end).trim();
+            }
+        }
+        return word;
+    }
+
+    // 2. Новая функция для обработки выделения (с поддержкой координат)
+    function executeSelectionSearch(fallbackWord = "") {
         let selection = window.getSelection().toString().trim();
         
-        // Очищаем от знаков препинания по краям, оставляя юникод-буквы, диакритику и корень
+        // Если ОС не успела выделить текст, берем слово по координатам
+        if (!selection && fallbackWord) {
+            selection = fallbackWord;
+        }
+        
+        // Очищаем от знаков препинания по краям, оставляя буквы, диакритику и корень
         selection = selection.replace(/^[^\p{L}\p{M}√]+|[^\p{L}\p{M}√]+$/gu, "");
         
         if (selection !== "") {
             const searchBox = document.getElementById('search-box');
             if (searchBox) searchBox.value = selection;
             
-            // Вызываем нашу новую клиентскую логику
             if (typeof handleClientSearch === 'function') {
                 handleClientSearch(selection);
-                
-                // Явно дёргаем поиск санскрита
-                if (typeof runSanskritSearch === 'function') {
-                    setTimeout(runSanskritSearch, 200);
-                }
             }
         }
     }
@@ -1700,19 +1621,24 @@ document.addEventListener('DOMContentLoaded', () => {
         const tapLength = currentTime - tapTime;
 
         if (tapLength < 300 && tapLength > 0) {
-            event.preventDefault();
-            executeSelectionSearch();
+            event.preventDefault(); // Блокируем стандартный зум
+            let wordFromTouch = "";
+            if (event.changedTouches && event.changedTouches.length > 0) {
+                const touch = event.changedTouches[0];
+                wordFromTouch = getWordAtPoint(touch.clientX, touch.clientY);
+            }
+            executeSelectionSearch(wordFromTouch);
         }
         tapTime = currentTime;
     }
 
     // 4. Навешиваем новые правильные слушатели
     if (dpdPane) {
-        dpdPane.addEventListener("dblclick", executeSelectionSearch);
+        dpdPane.addEventListener("dblclick", () => executeSelectionSearch());
         dpdPane.addEventListener("touchend", newHandleTouchEnd);
     }
     if (historyPane) {
-        historyPane.addEventListener("dblclick", executeSelectionSearch);
+        historyPane.addEventListener("dblclick", () => executeSelectionSearch());
         historyPane.addEventListener("touchend", newHandleTouchEnd);
     }
 
@@ -1721,14 +1647,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (event) event.preventDefault();
         const searchBox = document.getElementById('search-box');
         if (searchBox) {
-            // Снимаем фокус с поля, чтобы закрыть зависший список подсказок при Enter
-            searchBox.blur(); 
+            searchBox.blur(); // Снимаем фокус
         }
         if (searchBox && searchBox.value) {
             handleClientSearch(searchBox.value);
-            if (typeof runSanskritSearch === 'function') {
-                setTimeout(runSanskritSearch, 200);
-            }
         }
     };
 
@@ -1846,17 +1768,10 @@ function loadExternalDictionaries(query) {
     }
 
     if (!query) {
-        if (typeof lastSanskritQuery !== 'undefined') lastSanskritQuery = '';
+        lastSanskritQuery = '';
         const sr = document.getElementById('sanskrit-results');
         if (sr) sr.innerHTML = '';
         return;
-    }
-
-    // Sanskrit (Gandhari/PTS are updated from the DPD results handler)
-    const extStates = JSON.parse(localStorage.getItem('extDictStates') || '{}');
-    if (extStates['sanskrit'] !== true) {
-        if (typeof lastSanskritQuery !== 'undefined') lastSanskritQuery = '';
-        runSanskritSearch();
     }
 }
 
@@ -1996,7 +1911,7 @@ document.addEventListener('click', (e) => {
                     iframe.removeAttribute('data-src');
                 });
                 if (dictCode === 'sanskrit') {
-                    if (typeof lastSanskritQuery !== 'undefined') lastSanskritQuery = '';
+                    lastSanskritQuery = ''; // Resetting this forces runSanskritSearch to re-fetch if needed
                     if (typeof runSanskritSearch === 'function') runSanskritSearch();
                 }
             }
@@ -2257,7 +2172,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             }, 600);
         };
-
+ 
         const cancelPress = function() {
             clearTimeout(pressTimer);
         };
