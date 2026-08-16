@@ -550,6 +550,7 @@ async function handleClientSearch(rawQuery) {
             appendTripitaka(normalizedQuery);
             appendGandhari(normalizedQuery);
             appendPts(normalizedQuery);
+            appendBuddhadust(normalizedQuery);
             appendWisdomLib(normalizedQuery);
             
             // Синхронный вызов поиска санскрита
@@ -567,6 +568,13 @@ async function handleClientSearch(rawQuery) {
                 const c = ptsSlot.querySelector('.ext-dict-content');
                 if (c) c.innerHTML = '';
             }
+ const buddhadustSlot = document.getElementById('ext-slot-buddhadust');
+            if (buddhadustSlot) {
+                const c = buddhadustSlot.querySelector('.ext-dict-content');
+                if (c) c.innerHTML = '';
+            }
+            
+          
             const wisdomlibSlot = document.getElementById('ext-slot-wisdomlib');
             if (wisdomlibSlot) {
                 const c = wisdomlibSlot.querySelector('.ext-dict-content');
@@ -1662,7 +1670,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // ======== КОНФИГУРАЦИЯ ВНЕШНИХ СЛОВАРЕЙ ========
 // Порядок элементов в массиве определяет порядок отображения на странице.
-const EXTERNAL_DICTS_ORDER = ['dpd', 'tripitaka', 'gandhari', 'pts', 'wisdomlib', 'sanskrit'];
+const EXTERNAL_DICTS_ORDER = ['dpd', 'tripitaka', 'gandhari', 'pts', 'buddhadust', 'wisdomlib', 'sanskrit'];
 
 // Создаёт слот для DPD, перенося #dpd-results и #summary-results внутрь
 function createDpdSlot() {
@@ -1708,12 +1716,29 @@ function _initExtSlots(extContainer) {
             extContainer.appendChild(_createIframeDictSlot('gandhari', 'Gandhari Dictionary', 'https://gandhari.org/dictionary?section=dop', 'margin-bottom: 15px; margin-top: 15px;'));
         } else if (dictName === 'pts') {
             extContainer.appendChild(_createIframeDictSlot('pts', 'PTS Dictionary', 'https://dsal.uchicago.edu/cgi-bin/app/pali_query.py', 'margin-bottom: 15px;'));
-        } else if (dictName === 'wisdomlib') {
+        } else if (dictName === 'buddhadust') {
+    // ДОБАВЛЕН БЛОК ДЛЯ BUDDHADUST
+    const slot = document.createElement('div');
+    slot.id = 'ext-slot-buddhadust';
+    slot.style.cssText = 'margin-bottom: 15px;';
+    
+    // ИСПРАВЛЕНИЕ: Точная ссылка на glossology
+    const headerObj = renderExtDictHeader('buddhadust', 'Buddhadust', 'https://buddhadust.net/backmatter/glossology/glossologytoc.htm');
+    
+    slot.innerHTML = headerObj.headerHtml;
+    const contentDiv = document.createElement('div');
+    contentDiv.className = 'ext-dict-content';
+    contentDiv.style.cssText = `max-height: 450px; overflow: auto; display: ${headerObj.displayStyle};`;
+    slot.appendChild(contentDiv);
+    extContainer.appendChild(slot);
+}
+ else if (dictName === 'wisdomlib') {
             extContainer.appendChild(_createIframeDictSlot('wisdomlib', 'Wisdom Library', 'https://www.wisdomlib.org/definition/', 'margin-bottom: 15px;'));
         } else if (dictName === 'sanskrit') {
             extContainer.appendChild(_createSanskritSlot());
         }
     });
+
 }
 
 function _createIframeDictSlot(dictCode, title, baseUrl, style) {
@@ -1868,6 +1893,103 @@ function appendTripitaka(query) {
     // Передаем динамическую тему в URL
     appendIframeDict('tripitaka', 'Sutta-Vinaya Definitions and Similies', `https://tripitaka-mcp.com/read/embed/define?term=${encodeURIComponent(query)}&sources=an,dn,mn,sn,iti,ud,snp,dhp,vinaya&theme=${currentTheme}&link_base=${linkBase}`, true);
 }
+
+async function appendBuddhadust(query) {
+    const dictId = 'buddhadust';
+    const container = document.getElementById(`ext-slot-${dictId}`);
+    if (!container) return;
+
+    // Ищем область для контента внутри стандартной обертки слота
+    const contentDiv = container.querySelector('.ext-dict-content') || container;
+    contentDiv.innerHTML = '<div class="text-muted" style="padding: 15px;">Ищем в Buddhadust...</div>';
+
+    try {
+        const targetUrl = 'https://buddhadust.net/backmatter/glossology/glossologytoc.htm';
+        // Используем raw-прокси для обхода CORS на лету
+        const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
+        
+        const res = await fetch(proxyUrl);
+        const html = await res.text();
+        
+        const doc = new DOMParser().parseFromString(html, 'text/html');
+        
+        // Нормализуем запрос пользователя
+        const normalizedQuery = query.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+        
+        let exactLink = null;
+        let matches = [];
+
+        // Собираем ссылки из HTML
+        doc.querySelectorAll('a').forEach(link => {
+            const rawText = link.textContent || '';
+            const text = rawText.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+            const href = link.getAttribute('href');
+
+            if (!href) return;
+
+            if (text === normalizedQuery) {
+                exactLink = href;
+            } else if (text.includes(normalizedQuery) && text.length < 30) {
+                matches.push({ text: rawText, href: href });
+            }
+        });
+
+        // Сценарий 1: Точное совпадение
+        if (exactLink) {
+            const fullUrl = `https://buddhadust.net/backmatter/glossology/${exactLink}`;
+            _renderBuddhadustIframe(contentDiv, fullUrl, container);
+        } 
+        // Сценарий 2: Несколько вариантов
+        else if (matches.length > 0) {
+            // Рисуем список. По клику на текст - открываем в iframe, по клику на ↗️ - в новом окне
+            let listHtml = matches.map(m => {
+                const fullUrl = `https://buddhadust.net/backmatter/glossology/${m.href}`;
+                return `<li style="margin-bottom: 10px; display: flex; align-items: center;">
+                            <a href="javascript:void(0)" 
+                               onclick="_renderBuddhadustIframe(this.closest('.ext-dict-content') || document.getElementById('ext-slot-buddhadust'), '${fullUrl}', this.closest('.dict-slot-container'))" 
+                               style="text-decoration: none; border-bottom: 1px dashed #0066cc; color: #0066cc;">
+                               ${m.text}
+                            </a>
+                            <a href="${fullUrl}" target="_blank" title="Открыть в новом окне" style="margin-left: 10px; text-decoration: none; font-size: 0.9em; opacity: 0.7;">
+                                ↗️
+                            </a>
+                        </li>`;
+            }).join('');
+            
+            contentDiv.innerHTML = `
+                <div style="padding: 15px;">
+                    <h5 style="margin-top: 0; margin-bottom: 15px;">Найдено несколько вариантов:</h5>
+                    <ul style="list-style-type: none; padding-left: 0; margin: 0;">${listHtml}</ul>
+                </div>`;
+        } 
+        // Сценарий 3: Ничего не найдено
+        else {
+            // Если пусто, можно скрыть слот целиком (раскомментировать строку ниже)
+            // container.style.display = 'none'; 
+            contentDiv.innerHTML = '<div class="text-muted" style="padding: 15px;">В Buddhadust совпадений не найдено.</div>';
+        }
+
+    } catch (e) {
+        console.error("Ошибка при загрузке Buddhadust:", e);
+        contentDiv.innerHTML = '<div class="text-danger" style="padding: 15px;">Ошибка загрузки словаря.</div>';
+    }
+}
+
+// Вспомогательная функция для отрисовки iframe и обновления ссылки в шапке
+window._renderBuddhadustIframe = function(contentNode, url, containerNode) {
+    // Вставляем сам iframe
+    contentNode.innerHTML = `<iframe src="${url}" style="width:100%; height:500px; border:none; display:block;"></iframe>`;
+    
+    // Динамически обновляем кнопку "открыть в новом окне" в шапке слота, 
+    // чтобы она вела на ту же страницу, что сейчас открыта в iframe
+    if (containerNode) {
+        const extLinkBtn = containerNode.querySelector('.ext-link-btn'); // Замените класс на тот, что используется у вас в шапках
+        if (extLinkBtn) {
+            extLinkBtn.href = url;
+        }
+    }
+};
+
 
 
 function appendGandhari(query) {
