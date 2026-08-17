@@ -1701,6 +1701,8 @@ function _initExtSlots(extContainer) {
     for (const code of ['tripitaka', 'gandhari', 'pts', 'wisdomlib']) {
         if (!(code in extStates)) { extStates[code] = true; statesChanged = true; }
     }
+    // Buddhadust should be collapsed by default
+    if (!( 'buddhadust' in extStates )) { extStates['buddhadust'] = false; statesChanged = true; }
     if (statesChanged) localStorage.setItem('extDictStates', JSON.stringify(extStates));
 
     const savedSlotOrder = JSON.parse(localStorage.getItem('extDictsOrder') || '[]');
@@ -1717,20 +1719,28 @@ function _initExtSlots(extContainer) {
         } else if (dictName === 'pts') {
             extContainer.appendChild(_createIframeDictSlot('pts', 'PTS Dictionary', 'https://dsal.uchicago.edu/cgi-bin/app/pali_query.py', 'margin-bottom: 15px;'));
         } else if (dictName === 'buddhadust') {
+// TODO: Обновлять локальную копию статичного файла раз в месяц с https://buddhadust.net/backmatter/glossology/glossologytoc.htm
     // ДОБАВЛЕН БЛОК ДЛЯ BUDDHADUST
     const slot = document.createElement('div');
     slot.id = 'ext-slot-buddhadust';
     slot.style.cssText = 'margin-bottom: 15px;';
-    
-    // ИСПРАВЛЕНИЕ: Точная ссылка на glossology
-    const headerObj = renderExtDictHeader('buddhadust', 'Buddhadust', 'https://buddhadust.net/backmatter/glossology/glossologytoc.htm');
-    
+
+    // Используем локальную копию для избежания CORS проблем
+    const headerObj = renderExtDictHeader('buddhadust', 'Buddhadust', '/static/buddhadust-glossology.htm');
+
     slot.innerHTML = headerObj.headerHtml;
     const contentDiv = document.createElement('div');
     contentDiv.className = 'ext-dict-content';
-    contentDiv.style.cssText = `max-height: 450px; overflow: auto; display: ${headerObj.displayStyle};`;
+    // Force collapsed by default
+    contentDiv.style.cssText = `max-height: 450px; overflow: auto; display: none;`;
     slot.appendChild(contentDiv);
     extContainer.appendChild(slot);
+
+    // Set icon to collapsed state (▶)
+    const icon = slot.querySelector('.ext-dict-toggle-icon');
+    if (icon) {
+        icon.textContent = '▶';
+    }
 }
  else if (dictName === 'wisdomlib') {
             extContainer.appendChild(_createIframeDictSlot('wisdomlib', 'Wisdom Library', 'https://www.wisdomlib.org/definition/', 'margin-bottom: 15px;'));
@@ -1904,11 +1914,9 @@ async function appendBuddhadust(query) {
     contentDiv.innerHTML = '<div class="text-muted" style="padding: 15px;">Ищем в Buddhadust...</div>';
 
     try {
-        const targetUrl = 'https://buddhadust.net/backmatter/glossology/glossologytoc.htm';
-        // Используем raw-прокси для обхода CORS на лету
-        const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
-        
-        const res = await fetch(proxyUrl);
+        // Используем локальную статическую копию TOC чтобы избежать CORS
+        const targetUrl = '/static/buddhadust-glossology.htm';
+        const res = await fetch(targetUrl);
         const html = await res.text();
         
         const doc = new DOMParser().parseFromString(html, 'text/html');
