@@ -1275,7 +1275,7 @@ async function fetchSanskrit(query, isFallback = false, originalQuery = '') {
     const isRu = window.isRu;
     let fallbackText = '';
     if (isFallback) {
-        fallbackText = ` <span style="font-size: 0.85em; color: #999;">(${isRu ? 'поиск по' : 'fallback:'} <b>${query}</b>)</span>`;
+        fallbackText = ` <span style="font-size: 0.85em; color: #999;">(${isRu ? 'поиск по' : 'searching:'} <b>${query}</b>)</span>`;
     }
     
     container.innerHTML = `<div style="color: #666; padding: 5px;">${getUiText('loading')}${fallbackText}</div>`;
@@ -1387,13 +1387,13 @@ async function fetchSanskrit(query, isFallback = false, originalQuery = '') {
             container.innerHTML = `<div style="opacity: 0.7;">${msgEmpty}</div>`;
         } else {
             if (isFallback) {
-                 htmlContent = `<div style="margin-bottom: 8px; font-size: 0.9em; color: #666;">${isRu ? 'Найдено по слову' : 'Found via fallback'}: <b>${query}</b></div>` + htmlContent;
+                 htmlContent = `<div style="margin-bottom: 8px; font-size: 0.9em; color: #666;">${isRu ? 'Найдено по слову' : 'Found for'}: <b>${query}</b></div>` + htmlContent;
             }
             container.innerHTML = htmlContent;
         }
 
     } catch (error) {
-        console.error("Ошибка санскрита:", error);
+        console.error("Sanskrit error:", error);
         const msgNetworkError = isRu
             ? 'Не удалось загрузить данные санскрита из-за ошибки сети.'
             : 'Failed to load Sanskrit data due to a network error.';
@@ -1726,7 +1726,7 @@ function _initExtSlots(extContainer) {
     slot.style.cssText = 'margin-bottom: 15px;';
 
     // Используем локальную копию для избежания CORS проблем
-    const headerObj = renderExtDictHeader('buddhadust', 'Buddhadust', '/static/buddhadust-glossology.htm');
+    const headerObj = renderExtDictHeader('buddhadust', 'Buddhadust Glossology', 'https://buddhadust.net/backmatter/glossology/glossologytoc.htm');
 
     slot.innerHTML = headerObj.headerHtml;
     const contentDiv = document.createElement('div');
@@ -1928,16 +1928,27 @@ async function appendBuddhadust(query) {
         let matches = [];
 
         // Собираем ссылки из HTML
-        doc.querySelectorAll('a').forEach(link => {
-            const rawText = link.textContent || '';
-            const text = rawText.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
-            const href = link.getAttribute('href');
+        doc.querySelectorAll("a").forEach(link => {
+            const rawText = link.textContent || "";
+            const text = rawText.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
+            const href = link.getAttribute("href");
 
             if (!href) return;
 
-            if (text === normalizedQuery) {
+            // Для Buddhadust извлекаем текст термина из родительского элемента (текст перед [)
+            let termText = rawText;
+            if (link.parentElement) {
+                const parentText = link.parentElement.textContent || "";
+                const bracketIndex = parentText.indexOf("[");
+                if (bracketIndex !== -1) {
+                    termText = parentText.substring(0, bracketIndex);
+                }
+            }
+            const term = termText.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
+
+            if (term === normalizedQuery) {
                 exactLink = href;
-            } else if (text.includes(normalizedQuery) && text.length < 30) {
+            } else if (term.includes(normalizedQuery) && term.length < 30) {
                 matches.push({ text: rawText, href: href });
             }
         });
@@ -1966,7 +1977,7 @@ async function appendBuddhadust(query) {
             
             contentDiv.innerHTML = `
                 <div style="padding: 15px;">
-                    <h5 style="margin-top: 0; margin-bottom: 15px;">Найдено несколько вариантов:</h5>
+                    <h5 style="margin-top: 0; margin-bottom: 15px;">Variants:</h5>
                     <ul style="list-style-type: none; padding-left: 0; margin: 0;">${listHtml}</ul>
                 </div>`;
         } 
