@@ -1302,7 +1302,8 @@ async function fetchSanskrit(query, isFallback = false, originalQuery = '') {
                 return;
             }
 
-            data = await response.json();
+            const text = await response.text();
+            data = text ? JSON.parse(text) : { dicts: {} };
             if (sanskritApiCache.size >= SANSKRIT_CACHE_MAX) sanskritApiCache.delete(sanskritApiCache.keys().next().value);
             sanskritApiCache.set(cacheKey, data);
         }
