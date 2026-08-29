@@ -118,17 +118,30 @@ document.addEventListener('DOMContentLoaded', function() {
                             'щ': 'o', 'б': ',', 'ю': '.', ' ': ' '
                         };
 
+                        // Only known short text/nikaya abbreviations look like sutta indexes
+                        // (mn1.1, dhp423 etc). Regular words (e.g. "samaya 1.1", a DPD
+                        // homonym key) must NOT be glued together or lookup breaks.
+                        var idxAbbr = "mn|dn|sn|an|dhp|snp|ud|iti|thag|thig|vv|pv";
+
                         return term.trim()
                             .replace(/[а-яё]/g, char => ruToEn[char] || char)
-                            .replace(/([a-zA-Z]+)\s+(\d+)\s+(\d+)/g, "$1$2.$3")
-                            .replace(/([a-zA-Z]+)(\d+)\s+(\d+)/g, "$1$2.$3")
-                            .replace(/([a-zA-Z]+)\s+(\d+)\.(\d+)/g, "$1$2.$3")
-                            .replace(/([a-zA-Z]+)\s+(\d+)/g, "$1$2");
+                            .replace(new RegExp("\\b(" + idxAbbr + ")\\s+(\\d+)\\s+(\\d+)\\b", "gi"), "$1$2.$3")
+                            .replace(new RegExp("\\b(" + idxAbbr + ")(\\d+)\\s+(\\d+)\\b", "gi"), "$1$2.$3")
+                            .replace(new RegExp("\\b(" + idxAbbr + ")\\s+(\\d+)\\.(\\d+)\\b", "gi"), "$1$2.$3")
+                            .replace(new RegExp("\\b(" + idxAbbr + ")\\s+(\\d+)\\b", "gi"), "$1$2");
                     }
 
                     var normalizedTerm = normalizeTerm(request.term);
                     var terms = normalizedTerm.split(/[\|\s\*]/);
                     var lastTerm = terms.pop().trim();
+
+                    // A bare "1.1"/"1" tail after a word is a DPD homonym number
+                    // (e.g. "samaya 1.1"), not a separate search term — put it
+                    // back together so the word isn't dropped from the search.
+                    if (/^\d+(\.\d+)?$/.test(lastTerm) && terms.length && terms[terms.length - 1].trim()) {
+                        lastTerm = terms.pop().trim() + " " + lastTerm;
+                    }
+
                     var minLengthForSearch = 3;
 
                     // 1. Берем общую историю (ключ должен быть "history-list")

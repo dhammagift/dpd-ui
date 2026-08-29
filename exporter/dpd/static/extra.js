@@ -1499,11 +1499,14 @@ function cleanQueryParam(original) {
         }
     }
     
-    // Нормализация пробелов и точек
-    cleaned = cleaned.replace(/([a-z]+)\s+(\d+)\s+(\d+)/g, "$1$2.$3")
-                     .replace(/([a-z]+)(\d+)\s+(\d+)/g, "$1$2.$3")
-                     .replace(/([a-z]+)\s+(\d+)\.(\d+)/g, "$1$2.$3")
-                     .replace(/([a-z]+)\s+(\d+)/g, "$1$2");
+    // Нормализация пробелов и точек — только для реальных индексов текстов
+    // (mn 1 1 -> mn1.1). Обычные слова с номером омонима DPD (напр. "samaya 1.1")
+    // не должны склеиваться, иначе они перестают находиться в словаре.
+    const idxAbbr = "mn|dn|sn|an|dhp|snp|ud|iti|thag|thig|vv|pv";
+    cleaned = cleaned.replace(new RegExp(`\\b(${idxAbbr})\\s+(\\d+)\\s+(\\d+)\\b`, "g"), "$1$2.$3")
+                     .replace(new RegExp(`\\b(${idxAbbr})(\\d+)\\s+(\\d+)\\b`, "g"), "$1$2.$3")
+                     .replace(new RegExp(`\\b(${idxAbbr})\\s+(\\d+)\\.(\\d+)\\b`, "g"), "$1$2.$3")
+                     .replace(new RegExp(`\\b(${idxAbbr})\\s+(\\d+)\\b`, "g"), "$1$2");
 
     return cleaned;
 }
