@@ -106,7 +106,7 @@ body {
 }
 
 body.dark-mode #header-image {
-    content: url('/static/dpd-logo-dark.svg');
+    content: url('/static/dg-logo.svg');
 }
 
 /* --- FIXED BOTTOM TABS (Компактный дизайн внизу) --- */

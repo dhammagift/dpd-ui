@@ -43,7 +43,7 @@ function createPwaBanner() {
     // Создаем HTML баннера
     const bannerHTML = `
     <div id="pwa-banner" class="pwa-install hidden">
-      <img src="/static/dpd-logo.svg" alt="App Icon" class="icon">
+      <img src="/static/dg-logo.svg" alt="App Icon" class="icon">
       <div class="text">
         <h2 class="pwa-title">Install Dict.Dhamma.Gift</h2>
         <p class="pwa-description">Add to home screen for quick access</p>
