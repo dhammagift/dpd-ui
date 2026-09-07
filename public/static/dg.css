@@ -171,6 +171,15 @@ body[data-screen=start] #s-start,body[data-screen=entry] #s-entry{display:block}
 .dg-stats.skel{display:inline-block;width:7em;height:.9em;border-radius:4px;background:linear-gradient(90deg,var(--dg-border) 25%,var(--dg-border-strong) 37%,var(--dg-border) 63%);background-size:400% 100%;animation:dg-stats-skel 1.4s ease infinite}
 @keyframes dg-stats-skel{0%{background-position:100% 50%}100%{background-position:0 50%}}
 
+/* "*" info button next to the text/match count: opens a popover explaining the default search scope */
+.stat-star{position:relative;border:0;background:none;padding:0 0 0 1px;margin:0;color:var(--dg-accent-ink);font-size:12.5px;line-height:1;cursor:pointer;font-family:inherit}
+.stat-tip{display:none;position:absolute;top:100%;left:0;margin-top:8px;width:min(280px,72vw);background:var(--dg-surface);border:1px solid var(--dg-border);border-radius:12px;box-shadow:0 14px 40px var(--dg-shadow);padding:10px 12px;z-index:70;white-space:normal;text-align:left;font-size:12.5px;line-height:1.5;color:var(--dg-text-2)}
+.stat-star[data-open] .stat-tip{display:block}
+.stat-tip p{margin:0 0 6px}
+.stat-tip p:last-child{margin-bottom:0}
+.stat-tip b{color:var(--dg-text)}
+.stat-tip-note{font-style:italic}
+
 /* ── sources: external-dictionary slots (extra.js markup) ──── */
 .sources{margin:14px 0 0}
 .dpd-pane{overflow:visible}

@@ -51,10 +51,22 @@
   // ---- Dhamma.Gift word stats (text/match count next to "Open on Dhamma.Gift") ----
   // Fetched from dg-node's cheap ?fast=1 search endpoint (grep-only counts, no per-sutta
   // file reads — same request the dhamma.gift search UI itself uses on every keystroke).
+  // No &scope=all: the endpoint's "default" scope (4 Nikayas + Khuddaka Nikaya) is what we want.
   // Fire-and-forget: never blocks rendering, a stale/slow response for a word the user has
   // since navigated away from is dropped via the token guard below.
-  const dgStatsCache = new Map(); // word -> rendered stats text
+  const dgStatsCache = new Map(); // word -> rendered stats innerHTML (count + info star)
   let dgStatsToken = 0;
+
+  // resolvedPrefixes -> display name, in the order the API returns them
+  const NIKAYA_NAME = isRu
+    ? { dn: 'Дигха Никая', mn: 'Мадджхима Никая', sn: 'Самьютта Никая', an: 'Ангуттара Никая',
+        ud: 'Удана', snp: 'Сутта Нипата', dhp: 'Дхаммапада', thag: 'Тхерагатха', thig: 'Тхеригатха', iti: 'Итивуттака' }
+    : { dn: 'Dīgha Nikāya', mn: 'Majjhima Nikāya', sn: 'Saṃyutta Nikāya', an: 'Aṅguttara Nikāya',
+        ud: 'Udāna', snp: 'Sutta Nipāta', dhp: 'Dhammapada', thag: 'Theragāthā', thig: 'Therīgāthā', iti: 'Itivuttaka' };
+  const MAIN4 = ['dn', 'mn', 'sn', 'an'];
+  const T2 = isRu
+    ? { partial: 'Учитываются совпадения по всему слову и по части слова.', nikayas: 'Никаи', khuddaka: 'Кхуддака Никая', scopeInfo: 'Какие тексты учтены' }
+    : { partial: 'Matches the whole word or part of a word.', nikayas: 'Nikāyas', khuddaka: 'Khuddaka Nikāya', scopeInfo: 'What this counts' };
 
   function dgStatsText(totalFiles, totalMatches) {
     if (isRu) {
@@ -65,35 +77,50 @@
     return `${totalFiles} text${totalFiles === 1 ? '' : 's'} · ${totalMatches} match${totalMatches === 1 ? '' : 'es'}`;
   }
 
+  function dgStatsTip(resolvedPrefixes) {
+    const names = (p) => p.map((k) => NIKAYA_NAME[k]).filter(Boolean).join(', ');
+    const main = resolvedPrefixes.filter((p) => MAIN4.includes(p));
+    const rest = resolvedPrefixes.filter((p) => !MAIN4.includes(p));
+    const lines = [`<p class="stat-tip-note">${esc(T2.partial)}</p>`];
+    if (main.length) lines.push(`<p><b>${main.length} ${esc(T2.nikayas)}:</b> ${esc(names(main))}</p>`);
+    if (rest.length) lines.push(`<p><b>${esc(T2.khuddaka)}:</b> ${esc(names(rest))}</p>`);
+    return lines.join('');
+  }
+
+  function dgStatsHtml(text, tipHtml) {
+    if (!tipHtml) return esc(text);
+    return `${esc(text)}<button class="stat-star" type="button" aria-label="${esc(T2.scopeInfo)}">*<span class="stat-tip" role="tooltip">${tipHtml}</span></button>`;
+  }
+
   async function updateDgStats(word) {
     const el = $('dg-stats');
     if (!el) return;
     const token = ++dgStatsToken;
 
-    if (!word) { el.textContent = ''; el.classList.remove('skel'); return; }
+    if (!word) { el.innerHTML = ''; el.classList.remove('skel'); return; }
 
     const cached = dgStatsCache.get(word);
-    if (cached) { el.textContent = cached; el.classList.remove('skel'); return; }
+    if (cached) { el.innerHTML = cached; el.classList.remove('skel'); return; }
 
     el.textContent = '';
     el.classList.add('skel');
 
     try {
-      const url = `https://dhamma.gift/search?q=${encodeURIComponent(word)}&scope=all&fast=1`;
+      const url = `https://dhamma.gift/search?q=${encodeURIComponent(word)}&fast=1`;
       const res = await fetch(url);
       if (token !== dgStatsToken) return; // superseded by a newer word, drop this response
       if (!res.ok) throw new Error('dg-stats: bad response');
       const json = await res.json();
-      const { totalFiles, totalMatches } = json.metadata || {};
+      const { totalFiles, totalMatches, resolvedPrefixes } = json.metadata || {};
       el.classList.remove('skel');
-      if (!totalFiles) { el.textContent = ''; return; }
-      const text = dgStatsText(totalFiles, totalMatches);
-      dgStatsCache.set(word, text);
-      el.textContent = text;
+      if (!totalFiles) { el.innerHTML = ''; return; }
+      const html = dgStatsHtml(dgStatsText(totalFiles, totalMatches), resolvedPrefixes?.length ? dgStatsTip(resolvedPrefixes) : '');
+      dgStatsCache.set(word, html);
+      el.innerHTML = html;
     } catch (e) {
       if (token !== dgStatsToken) return;
       el.classList.remove('skel');
-      el.textContent = '';
+      el.innerHTML = '';
     }
   }
 
@@ -117,7 +144,10 @@
     const a = e.target.closest('a[data-word]');
     if (a) { e.preventDefault(); pickWord(a.dataset.word); return; }
     const f = e.target.closest('button[data-fav]');
-    if (f) { e.preventDefault(); favSet(f.dataset.fav); }
+    if (f) { e.preventDefault(); favSet(f.dataset.fav); return; }
+    const star = e.target.closest('.stat-star');
+    document.querySelectorAll('.stat-star[data-open]').forEach((b) => { if (b !== star) b.removeAttribute('data-open'); });
+    if (star) star.toggleAttribute('data-open');
   });
 
   // ---- favorites ---------------------------------------------------------
@@ -171,7 +201,11 @@
   document.addEventListener('pointerdown', (e) => {
     if (B.classList.contains('pnopen') && !e.target.closest('.panel') && !e.target.closest('.hbtns')) closePanels();
   });
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closePanels(); });
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    closePanels();
+    document.querySelectorAll('.stat-star[data-open]').forEach((b) => b.removeAttribute('data-open'));
+  });
 
   // ---- data --------------------------------------------------------------
   // clears both history and favorites (the settings row and any trash button)
