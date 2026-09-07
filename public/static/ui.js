@@ -45,6 +45,56 @@
     const w = typeof cleanQueryParam === 'function' ? cleanQueryParam(q) : q;
     B.dataset.screen = 'entry';
     const h = $('whead-word'); if (h) h.textContent = w;
+    updateDgStats(w);
+  }
+
+  // ---- Dhamma.Gift word stats (text/match count next to "Open on Dhamma.Gift") ----
+  // Fetched from dg-node's cheap ?fast=1 search endpoint (grep-only counts, no per-sutta
+  // file reads — same request the dhamma.gift search UI itself uses on every keystroke).
+  // Fire-and-forget: never blocks rendering, a stale/slow response for a word the user has
+  // since navigated away from is dropped via the token guard below.
+  const dgStatsCache = new Map(); // word -> rendered stats text
+  let dgStatsToken = 0;
+
+  function dgStatsText(totalFiles, totalMatches) {
+    if (isRu) {
+      const f = totalFiles % 10 === 1 && totalFiles % 100 !== 11 ? 'текст' : (totalFiles % 10 >= 2 && totalFiles % 10 <= 4 && (totalFiles % 100 < 10 || totalFiles % 100 >= 20)) ? 'текста' : 'текстов';
+      const m = totalMatches % 10 === 1 && totalMatches % 100 !== 11 ? 'совпадение' : (totalMatches % 10 >= 2 && totalMatches % 10 <= 4 && (totalMatches % 100 < 10 || totalMatches % 100 >= 20)) ? 'совпадения' : 'совпадений';
+      return `${totalFiles} ${f} · ${totalMatches} ${m}`;
+    }
+    return `${totalFiles} text${totalFiles === 1 ? '' : 's'} · ${totalMatches} match${totalMatches === 1 ? '' : 'es'}`;
+  }
+
+  async function updateDgStats(word) {
+    const el = $('dg-stats');
+    if (!el) return;
+    const token = ++dgStatsToken;
+
+    if (!word) { el.textContent = ''; el.classList.remove('skel'); return; }
+
+    const cached = dgStatsCache.get(word);
+    if (cached) { el.textContent = cached; el.classList.remove('skel'); return; }
+
+    el.textContent = '';
+    el.classList.add('skel');
+
+    try {
+      const url = `https://dhamma.gift/search?q=${encodeURIComponent(word)}&scope=all&fast=1`;
+      const res = await fetch(url);
+      if (token !== dgStatsToken) return; // superseded by a newer word, drop this response
+      if (!res.ok) throw new Error('dg-stats: bad response');
+      const json = await res.json();
+      const { totalFiles, totalMatches } = json.metadata || {};
+      el.classList.remove('skel');
+      if (!totalFiles) { el.textContent = ''; return; }
+      const text = dgStatsText(totalFiles, totalMatches);
+      dgStatsCache.set(word, text);
+      el.textContent = text;
+    } catch (e) {
+      if (token !== dgStatsToken) return;
+      el.classList.remove('skel');
+      el.textContent = '';
+    }
   }
 
   // Wrap the search entry point from extra.js: switch screen, set headword, repaint lists.
@@ -129,7 +179,7 @@
     $('histbtn')?.setAttribute('aria-pressed', String(B.dataset.hist === 'on'));
     $('clear-history-button')?.addEventListener('click', clearHistory); // clears history + favorites, repaints
     const q = new URLSearchParams(location.search).get('q');
-    if (q) { const h = $('whead-word'); if (h) h.textContent = q; }
+    if (q) { const h = $('whead-word'); if (h) h.textContent = q; updateDgStats(q); }
     paintHist();
     // shadow under the sticky bar once the page scrolls (no scroll listener)
     const s = document.createElement('div'); s.style.cssText = 'position:absolute;top:0;height:1px;width:1px';
