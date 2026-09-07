@@ -200,8 +200,8 @@ sansSerifToggle.addEventListener("change", function() {
 });
 
 function swopSansSerif() {
-    const serifFonts = '"Noto Serif", "Dejavu Serif", "Garamond", "Georgia", "serif"';
-    const sansFonts = '"Roboto", "Dejavu Sans", "Noto Sans", "Helvetica", "Verdana", "sans-serif"';
+    const serifFonts = '"Source Serif 4", "Noto Serif", "Georgia", serif';
+    const sansFonts = '"Lato", "Noto Sans", "Helvetica Neue", Arial, sans-serif';
     if (sansSerifToggle.checked) {
         document.body.style.fontFamily = serifFonts;
         searchBox.style.fontFamily = serifFonts

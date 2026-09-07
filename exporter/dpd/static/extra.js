@@ -1920,7 +1920,7 @@ async function appendBuddhadust(query) {
 
     try {
         // Используем локальную статическую копию TOC чтобы избежать CORS
-        const targetUrl = '/static/buddhadust-glossology.htm';
+        const targetUrl = 'static/buddhadust-glossology.htm';
         const res = await fetch(targetUrl);
         const html = await res.text();
         
@@ -2244,14 +2244,7 @@ function highlightInflectionMatch() {
 
 document.addEventListener('DOMContentLoaded', function() {
     applySavedTheme();
-    if (typeof initStartMessage === 'function') {
-        const lang = document.documentElement.lang || 'en';
-        initStartMessage(lang);
-        const dpdResultsEl = document.getElementById('dpd-results');
-        if (dpdResultsEl && dpdResultsEl.innerHTML.trim() === '') {
-            dpdResultsEl.innerHTML = startMessage;
-        }
-    }
+    // Start screen lives in the template (#s-start); no startMessage injection.
     populateHistoryBody();
     toggleClearHistoryButton();
 

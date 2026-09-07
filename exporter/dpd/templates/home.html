@@ -1,15 +1,12 @@
+
 <!DOCTYPE html>
 <html lang="en">
 
 <head>
   <meta charset="UTF-8">
-  <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="theme-color" content="#1a8bdb">
-
-<!--   <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
- -->  
- <title>Dict.Dhamma.Gift — Pāḷi Multi-Dictionary</title>
+  <meta name="theme-color" content="#149c7c">
+  <title>Dict.Dhamma.Gift — Pāḷi Multi-Dictionary</title>
   <meta name="description" content="Dict.Dhamma.Gift (DDG) — a Pāḷi multi-dictionary combining DPD, Gandhari, PTS, Sanskrit and Sutta-Vinaya definitions in one place.">
   <link rel="manifest" href="static/manifest.json">
   <script>
@@ -18,260 +15,206 @@
     }
   </script>
 
-
   <link rel="canonical" href="https://dict.dhamma.gift/">
   <link rel="alternate" href="https://dict.dhamma.gift/ru/" hreflang="ru">
   <link rel="alternate" href="https://dict.dhamma.gift/" hreflang="en">
   <link rel="alternate" href="https://dict.dhamma.gift/" hreflang="x-default">
 
-  <link rel="stylesheet" type="text/css" href="static/home.css">
-  <link rel="stylesheet" type="text/css" href="static/switch.css">
-  <link rel="stylesheet" type="text/css" href="static/dpd.css">
   <link rel="icon" type="image/svg+xml" href="static/dg-logo.svg">
-
-  <link href="static/jquery-ui.min.css" rel="stylesheet" />
-  <link href="static/extrastyles.css" rel="stylesheet" />
+  <link rel="stylesheet" href="static/dpd.css">
+  <link rel="stylesheet" href="static/jquery-ui.min.css">
+  <link rel="stylesheet" href="static/fa/fa.min.css">
+  <link rel="stylesheet" href="static/dg.css?v=ui1">
   <script src="static/jquery-3.7.0.min.js"></script>
   <script src="static/jquery-ui.min.js"></script>
-
-  <style>
-  </style>
-
 </head>
 
+<body data-screen="start" data-hist="on">
+<script>
+  // Apply saved theme/rail state before first paint (avoids flash)
+  try {
+    if (localStorage.getItem('theme') === 'dark') document.body.classList.add('dark-mode');
+    if (localStorage.getItem('desktopHistoryHidden') === 'true') document.body.dataset.hist = 'off';
+    if (/[?&]q=/.test(location.search)) document.body.dataset.screen = 'entry';
+  } catch (e) {}
+</script>
 
-<body>
+<div class="frame">
 
-
-
-
-
-  <div id="dpd-tab" class="tab-content active">
-    <div class="header-pane">
-<div class="logo-title">
-  <a href="javascript:void(0)" title="Home / Change language (Long press or Right-click)" class="alogo" id="logo-link">
-    <img src="static/dg-logo.svg" alt="dg logo" id="header-image" class="header-image">
+<div class="tbar"><div class="in">
+  <a href="javascript:void(0)" class="wordmark alogo" id="logo-link" title="Home / Change language (long press or right-click, Alt+1)">
+    <img src="static/dgsankhaonly.png" alt="" id="header-image">
+    <b id="title-clear">Dict</b>
+    <span><span class="brahmi" title="Pāḷi (Brahmi)">𑀧𑀸𑀴𑀺</span> → En/Ru</span>
   </a>
- <h2 class="title" id="title-clear">
-      <a href="javascript:void(0)" class="alogo" title="Main / Change language (long tap or right click)">Dict</a>
-    </h2></div>
 
-      <div class="dict-dropdown-container">
-        <button class="round-button dict-dropdown-toggle" title="Open dictionaries"
-          onclick="toggleDictDropdown(event)">
-          📘
-        </button>
-        <div class="dict-dropdown-menu-down"></div>
-      </div>
+  <form class="shell" id="search-form">
+    <input class="search-box" type="search" name="search" id="search-box" placeholder="kacchapā, kacchapaa, tortoise"
+      aria-label="Pāḷi word, Velthuis or English" value="" autocomplete="off" inputmode="text" autocapitalize="off" autofocus>
+    <button class="clr" type="button" title="Clear" onclick="var s=document.getElementById('search-box');s.value='';s.focus()"><i class="fa-solid fa-xmark"></i></button>
+    <span class="dict-dropdown-container">
+      <button class="rnd dict-dropdown-toggle" type="button" title="Look this word up in another dictionary" onclick="toggleDictDropdown(event)"><i class="gi i-book"></i></button>
+      <div class="dict-dropdown-menu-down"></div>
+    </span>
+    <button class="rnd go" type="submit" id="search-button" title="Search"><i class="fa-solid fa-magnifying-glass"></i></button>
+  </form>
 
-      <form id="search-form">
-        <div class="mb-3 form-group input-group ui-widget dropup rounded-pill">
-          <label class="sr-only dropup" for="search-box"></label>
-          <input class="search-box" type="search" name="search" id="search-box" placeholder="Search..."
-            value="" autocomplete="off" inputmode="text" autocapitalize="off" autofocus>
-          <button class="search-button" id="search-button"><span>search</span></button>
-          <button class="help small-button" id="search-help-button">
-            ?
-            <span class="tooltip velthuis">
-              <b>
-                Velthuis Typing:
-              </b><br><br>
-              aa - ā<br>
-              ii - ī<br>
-              uu - ū<br>
-              "n - ṅ<br>
-              ~n - ñ<br>
-              .t - ṭ<br>
-              .d - ḍ<br>
-              .n - ṇ<br>
-              .m - ṃ<br>
-              .l - ḷ
-            </span>
-          </button>
-        </div>
-      </form>
-
-<div class="desktop-extra-icons">
-  <button class="desktop-icon-btn" type="button" onclick="toggleDesktopHistoryBtn()" title="Toggle History (Alt + H)">
-      <img src="static/clock-rotate-left.svg" alt="History" class="header-icon-img">
-  </button>
-  <button class="desktop-icon-btn" type="button" onclick="toggleDesktopSettingsBtn()" title="Toggle Settings (Alt + S)">
-      <img src="static/gear.svg" alt="Settings" class="header-icon-img">
-  </button>
-      <button class="desktop-icon-btn" type="button" onclick="changeLanguage('ru')" title="Language / Язык (Alt + 1)">
-          <span style="font-size: 1.2em; line-height: 1;">🌐</span>
-      </button>
-</div>
-
-
-<div class="desktop-extra-icons">
-  <button class="desktop-icon-btn" type="button" onclick="toggleDesktopHistoryBtn()" title="Toggle History (Alt + H)">
-      <img src="static/clock-rotate-left.svg" alt="History" class="header-icon-img">
-  </button>
-  <button class="desktop-icon-btn" type="button" onclick="toggleDesktopSettingsBtn()" title="Toggle Settings (Alt + S)">
-      <img src="static/gear.svg" alt="Settings" class="header-icon-img">
-  </button>
-  
-  <div class="desktop-lang-container lang-btn-desktop">
-      <button class="desktop-icon-btn" type="button" onclick="toggleLanguage()"  title="Язык / Language (Alt + 1)">
-          <span style="font-size: 1.2em; line-height: 1;">🌐</span>
-      </button>
-  </div></div>
-
-    </div>
-    <div class="main-pane" id="main-pane">
-      <div class="history-pane" id="history-pane">
-        <button class="collapse-btn" onclick="toggleHistory()">
-          <h3>
-            History&nbsp;<div class="history-icon"></div>
-          </h3>
-        </button>
-        <div id="history-content">
-
-
-          <button id="clear-history-button" class="clear-history-button">x</button>
-          <div class="history-list-pane" id="history-list-pane"></div>
-        </div>
-      </div>
-      <div class="dpd-pane" id="dpd-pane">
-        <div class="summary-results" id="summary-results"></div>
-        <div class="dpd-results" id="dpd-results">
-        </div>
-      </div>
-      <div class="settings-pane">
-        <button class="collapse-btn" onclick="toggleSettings()">
-          <h3>
-            Settings&nbsp;<div class="settings-icon"></div>
-          </h3>
-        </button>
-        <div id="settings-content">
-          <p>
-            <div class="language-switcher">
-            <span class="language-icon" title="Language"> 🌐 Change Language
-              <span class="tooltip">
-                <b>Language</b>
-              </span>
-            </span>
-            <div class="dropdown" style="display: none;">
-              <a href="javascript:void(0)" class="dropdown-item" onclick="changeLanguage('en')">English</a>
-              <a href="javascript:void(0)" class="dropdown-item" onclick="changeLanguage('ru')">Русский</a>
-            </div>
-          </div>
-          </p>
-          <p>
-            <button class="small-button" id="font-size-down">-</button>
-            <button class="small-button" id="font-size-up">+</button>
-            font size
-            <span id="font-size-display"></span>
-          </p>
-          <p>
-            <label class="switch">
-              <input type="checkbox" id="theme-toggle"><span class="slider round"></span>
-            </label>
-            light / dark mode
-          </p>
-          <p>
-            <label class="switch">
-              <input type="checkbox" id="sans-serif-toggle"><span class="slider round"></span>
-            </label>
-            sans / serif font
-          </p>
-          <p>
-            <label class="switch">
-              <input type="checkbox" id="niggahita-toggle"><span class="slider round"></span>
-            </label>
-            niggahīta ṃ / ṁ
-          </p>
-          <p>
-            <label class="switch">
-              <input type="checkbox" id="grammar-toggle"><span class="slider round"></span>
-            </label>
-            grammar button closed / open
-          </p>
-          <p>
-            <label class="switch">
-              <input type="checkbox" id="example-toggle"><span class="slider round"></span>
-            </label>
-            example button closed / open
-          </p>
-          <p>
-            <label class="switch">
-              <input type="checkbox" id="one-button-toggle" checked><span class="slider round"></span>
-            </label>
-            one button at a time off / on
-          </p>
-          <p>
-            <label class="switch">
-              <input type="checkbox" id="summary-toggle"><span class="slider round"></span>
-            </label>
-            summary hide / show
-          </p>
-          <p>
-            <label class="switch">
-              <input type="checkbox" id="sandhi-toggle"><span class="slider round"></span>
-            </label>
-            sandhi ' hide / show
-          </p>
-                <p>
-                    <label class="switch">                                            
-					<input type="checkbox" id="audio-toggle" />
-                        <span class="slider round"></span>                        
-					</label>                                                      
-					audio male / female                                       
-					</p>
-          <p>
-            <label class="switch">
-<input type="checkbox" id="tabs-toggle">
-
-              <span class="slider round"></span>
-            </label>
-            links hide / show
-          </p>
-
-        </div>
-      </div>
-    </div>
-    <div class="footer-pane">
-        <!-- <a href="javascript:void(0)" title="Открыть слово в PTS, CPD, CONE, Skr, Wisdomlib (Alt + Q)"
-        onclick="openDictionaries(event)">Dict</a> -->
-
-      <a class="dg-link" href="" target="" title="Search with Dhamma.Gift">DG</a> <a
-        href="static/dictTest.html" rel="noopener noreferrer" title="CC BY-NC-SA 4.0 — Attribution-NonCommercial-ShareAlike 4.0 International" onclick="event.preventDefault();
-      window.open('https://creativecommons.org/licenses/by-nc-sa/4.0', '_blank');" class="copyright" style="all: unset; cursor: pointer;">©</a> <a 
-        href="" class="dpd-link" title="Open with Dpdict.net" target="_blank">Powered by DPD</a>
-    </div>
+  <div class="hbtns">
+    <button class="rb" id="histbtn" type="button" aria-pressed="true" title="History: show / hide (Alt+H)" onclick="histToggle()"><i class="gi i-history"></i></button>
+    <button class="rb" type="button" title="Settings (Alt+S)" onclick="openPanel('set')"><i class="gi i-gear"></i></button>
+    <button class="rb hide-m" type="button" title="Theme (Alt+T)" onclick="toggleThemeProgrammatically()"><i class="gi i-theme"></i></button>
+    <button class="rb hide-m" type="button" title="Help" onclick="document.getElementById('help').showModal()"><i class="gi i-help"></i></button>
   </div>
+</div></div>
 
-<div id="tab-container" class="tab-buttons">
-       <a class="dg-link tab-link" href="" target="" title="Search with Dhamma.Gift">DG</a> 
-	   
-<div class="dict-dropdown-container tab-link">
-        
- <a href="javascript:void(0)" class="dict-dropdown-toggle" title="Открыть в словарях (Alt + Q) в основных"  onclick="toggleDictDropdown(event)">
-          Dicts</a>
-        <div class="dict-dropdown-menu"></div>
+<div class="page" id="main-pane">
+  <aside class="rail" id="history-pane">
+    <div class="rh">Favorites</div>
+    <ul id="rail-fav"></ul>
+    <div class="rh" style="padding-top:15px">History</div>
+    <ul id="rail-list"></ul>
+  </aside>
+
+  <div class="col">
+    <!-- start screen -->
+    <main class="screen" id="s-start">
+      <div class="start">
+        <h1>Pāḷi and Sanskrit dictionaries<button class="helpq" type="button" title="Help" onclick="document.getElementById('help').showModal()"><i class="gi i-help"></i></button></h1>
+        <p class="sub">One word, several sources: DPD, Sanskrit dictionaries, glossaries and definitions from the Suttas and Vinaya.</p>
+        <div class="hows">
+          <div class="how"><b><i class="fa-solid fa-keyboard"></i>Four ways to type</b><p>Pāḷi with autocomplete, Velthuis (<code>kacchapaa</code>), English, Russian.</p></div>
+          <div class="how"><b><i class="fa-solid fa-arrow-up-right-from-square"></i>Dictionary on any site</b><p><a href="https://chromewebstore.google.com/detail/dhammagift-search-and-wor/dnnogjdcmhbiobpnkhdbfnfjnjlikabd" target="_blank" rel="noopener">Browser extension</a>, <a href="#" id="installLink" title="Chrome Android menu → Add to Home screen">Web</a> and <a href="https://github.com/dhammagift/dpd-twa/releases" target="_blank" rel="noopener">Android</a> app: select a word → Share → Dict.DG.</p></div>
+          <div class="how"><b><i class="fa-solid fa-table-columns"></i>Sortable tables</b><p>In the grammar dictionary any column header sorts: case, number, gender.</p></div>
+        </div>
+        <div class="recents" id="recents" hidden>
+          <h2>Recent</h2>
+          <div class="chips" id="chips"></div>
+        </div>
+        <div class="dictlist">
+          <h2>What is included</h2>
+          <ul>
+            <li><b>DPD</b><em>Digital Pāḷi Dictionary</em><span class="n">primary</span></li>
+            <li><b>Sutta-Vinaya Definitions and Similes</b><span class="n">definitions from the Canon</span></li>
+            <li><b>Gandhari Dictionary</b><em>M. Cone</em></li>
+            <li><b>PTS Dictionary</b><em>Rhys Davids</em></li>
+            <li><b>Buddhadust Glossology</b><em>comparative terms, Michael Olds</em></li>
+            <li><b>Wisdom Library</b><em>reference on Indian teachings: Buddhism, Hinduism, Jainism</em></li>
+            <li><b>Sanskrit</b><em>Monier-Williams, Shabda-Sagara and 30+ more</em></li>
+          </ul>
+        </div>
       </div>
- 
- <a class="dpd-link tab-link"
-        href="" title="Open at Dpdict.net" target="_blank">DPD</a>
-  
- <!--<span class="tab-link active">DPD</span>-->
+    </main>
 
-  <a id="bold-def-link" class="tab-link" target="_blank" rel="noopener">
-    Definitions
-  </a>
-
-  <a id="translations-link" class="tab-link" target="_blank" rel="noopener">
-    Translations
-  </a>
+    <!-- entry screen -->
+    <main class="screen" id="s-entry">
+      <div class="whead">
+        <h1 id="whead-word"></h1>
+        <div class="acts">
+          <button class="rb" id="favbtn" type="button" aria-pressed="false" title="Favorite: pins the word above history" onclick="favToggle()"><i class="gi i-star"></i></button>
+          <button class="rb" type="button" title="Pronounce" onclick="speakWord()"><i class="fa-solid fa-volume-high"></i></button>
+          <button class="rb" type="button" title="Copy word" onclick="copyWord()"><i class="gi i-copy"></i></button>
+          <button class="rb" type="button" title="Copy link" onclick="copyLink()"><i class="gi i-link"></i></button>
+        </div>
+      </div>
+      <p class="meta"><a href="" class="dg-link" title="Search this word in the texts on Dhamma.Gift">Open on Dhamma.Gift<i class="gi i-ext" style="margin-left:5px;font-size:10px"></i></a></p>
+      <section class="sources dpd-pane" id="dpd-pane">
+        <div class="summary-results" id="summary-results"></div>
+        <div class="dpd-results" id="dpd-results"></div>
+      </section>
+    </main>
+  </div>
 </div>
 
-  <script src="static/home.js"></script>
-  <script src="static/dpd.js" defer></script>
-  <script src="static/autopali.js" defer></script>
-  <script src="static/extra.js"></script>
-  <script src="static/sorter.js" defer></script>
-  <script src="static/openDicts.js" defer></script>
+<nav class="projrow" id="tab-container"><div class="in">
+  <a class="dg-link tab-link" href="" title="Search this word in the texts on Dhamma.Gift">Dhamma.gift</a>
+  <a href="javascript:void(0)" class="tab-link" aria-current="page">Dictionary</a>
+  <a class="dpd-link tab-link" href="" title="Open at Dpdict.net" target="_blank">DPD</a>
+  <a id="bold-def-link" class="tab-link" target="_blank" rel="noopener">Definitions</a>
+  <a id="translations-link" class="tab-link" target="_blank" rel="noopener">Translations</a>
+</div></nav>
+
+<footer class="pagefoot">
+  <span>Dict.Dhamma.Gift</span><span class="dot">·</span>
+  <a href="https://creativecommons.org/licenses/by-nc-sa/4.0" target="_blank" rel="noopener" title="CC BY-NC-SA 4.0">CC BY-NC-SA 4.0</a><span class="dot">·</span>
+  <a class="dpd-link" href="" target="_blank" title="Open at Dpdict.net">Powered by DPD</a>
+  <div class="sp">
+    <a href="https://github.com/dhammagift/dpd-ui" target="_blank" rel="noopener" title="GitHub"><i class="fa-brands fa-github"></i></a>
+    <a href="https://t.me/dhamma_gift" target="_blank" rel="noopener" title="Telegram"><i class="fa-brands fa-telegram"></i></a>
+  </div>
+</footer>
+</div>
+
+<!-- settings panel -->
+<aside class="panel" id="p-set">
+  <div class="ph"><b>Settings</b>
+    <a href="javascript:void(0)" class="phelp" onclick="document.getElementById('help').showModal()"><i class="gi i-help"></i>Help</a>
+    <button class="rb" type="button" title="Close" onclick="closePanels()"><i class="fa-solid fa-xmark"></i></button>
+  </div>
+  <div class="pb">
+    <div class="grp first">Appearance</div>
+    <div class="set"><span class="lb">Interface language</span>
+      <div class="seg"><button type="button" aria-pressed="" onclick="changeLanguage('ru')">RU</button><button type="button" aria-pressed="true" onclick="changeLanguage('en')">EN</button></div></div>
+    <div class="set"><span class="lb">Theme</span>
+      <label class="seg"><input type="checkbox" id="theme-toggle"><span>day</span><span>night</span></label></div>
+    <div class="set"><span class="lb">Font size</span>
+      <div class="stepper"><button type="button" id="font-size-down">−</button><span id="font-size-display"></span><button type="button" id="font-size-up">+</button></div></div>
+    <div class="set"><span class="lb">Font<em>sans-serif / serif</em></span>
+      <label class="seg"><input type="checkbox" id="sans-serif-toggle"><span>sans</span><span>serif</span></label></div>
+    <div class="set"><span class="lb">Niggahīta</span>
+      <label class="seg"><input type="checkbox" id="niggahita-toggle"><span>ṃ</span><span>ṁ</span></label></div>
+
+    <div class="grp">Expand right away</div>
+    <div class="set"><span class="lb">Grammar section</span><input class="sw" type="checkbox" id="grammar-toggle"></div>
+    <div class="set"><span class="lb">Examples section</span><input class="sw" type="checkbox" id="example-toggle"></div>
+    <div class="set"><span class="lb">Summary</span><input class="sw" type="checkbox" id="summary-toggle"></div>
+    <div class="set"><span class="lb">One section at a time<em>opening a section closes the previous one</em></span><input class="sw" type="checkbox" id="one-button-toggle" checked></div>
+
+    <div class="grp">Text and sound</div>
+    <div class="set"><span class="lb">Sandhi mark ’</span><input class="sw" type="checkbox" id="sandhi-toggle"></div>
+    <div class="set"><span class="lb">Voice</span>
+      <label class="seg"><input type="checkbox" id="audio-toggle"><span>male</span><span>female</span></label></div>
+    <div class="set"><span class="lb">Show project links</span><input class="sw" type="checkbox" id="tabs-toggle"></div>
+
+    <div class="grp">Data</div>
+    <div class="set"><span class="lb">Search history<em>stored only in this browser</em></span>
+      <button class="rb act" type="button" id="clear-history-button" title="Clear history"><i class="fa-regular fa-trash-can"></i>clear</button></div>
+    <div class="set"><span class="lb">Settings<em>return every value to default</em></span>
+      <button class="rb act" type="button" title="Reset all settings" onclick="resetSettings()"><i class="gi i-reset"></i>reset</button></div>
+  </div>
+</aside>
+
+<!-- history panel (mobile) -->
+<aside class="panel hist-p" id="p-hist">
+  <div class="ph"><b>Favorites and history</b>
+    <button class="rb" type="button" title="Clear history" onclick="clearHistory()"><i class="fa-solid fa-trash-can" style="font-size:13px"></i></button>
+    <button class="rb" type="button" title="Close" onclick="closePanels()"><i class="fa-solid fa-xmark"></i></button>
+  </div>
+  <div class="pb"><div class="grp first">Favorites</div><ul id="fav-list"></ul><div class="grp">History</div><ul id="hist-list"></ul></div>
+</aside>
+
+<dialog id="help" class="helpdlg">
+  <div class="ph"><b>Help</b><button class="rb" type="button" title="Close" onclick="document.getElementById('help').close()"><i class="fa-solid fa-xmark"></i></button></div>
+  <div class="pb">
+    <h4>Typing</h4>
+    <p>Type Pāḷi with autocomplete, in Velthuis, or search in English. Double-click any word in an entry to look it up.</p>
+    <div class="vel"><span>aa → ā</span><span>ii → ī</span><span>uu → ū</span><span>"n → ṅ</span><span>~n → ñ</span><span>.t → ṭ</span><span>.d → ḍ</span><span>.n → ṇ</span><span>.m → ṃ</span><span>.l → ḷ</span></div>
+    <h4>Hotkeys</h4>
+    <p><kbd>/</kbd> focus search · <kbd>Alt+H</kbd> history · <kbd>Alt+S</kbd> settings · <kbd>Alt+T</kbd> theme · <kbd>Alt+1</kbd> English/Russian · <kbd>Alt+2</kbd> Dhamma.Gift Read · <kbd>Alt+3</kbd> Dhamma.Gift Search</p>
+    <h4>Autosuggestions</h4>
+    <p>Words from the Four Nikāyas (DN, MN, SN, AN), parts of the KN (Dhp, Iti, Ud, Snp) and all sections of the Vinaya, Mahāsaṅgīti edition.</p>
+    <h4>Apps</h4>
+    <p><a href="https://chromewebstore.google.com/detail/dhammagift-search-and-wor/dnnogjdcmhbiobpnkhdbfnfjnjlikabd" target="_blank" rel="noopener">Browser extension</a> (Chrome, Edge, Firefox), <a href="https://github.com/dhammagift/dpd-twa/releases" target="_blank" rel="noopener">Android app</a>, or install this site from the browser menu. Then select a word anywhere → Share → Dict.DG.</p></div>
+</dialog>
+
+<div id="bubbleNotification" class="bubble-notification"></div>
+
+<script src="static/home.js?v=ui1"></script>
+<script src="static/dpd.js" defer></script>
+<script src="static/autopali.js" defer></script>
+<script src="static/extra.js?v=ui1"></script>
+<script src="static/sorter.js" defer></script>
+<script src="static/openDicts.js" defer></script>
+<script src="static/ui.js?v=ui1"></script>
 </body>
 
 </html>
