@@ -140,6 +140,17 @@
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
+  // keep the popover's right edge from pushing the page wider than the viewport
+  function clampStatTip(star) {
+    const tip = star.querySelector('.stat-tip');
+    if (!tip) return;
+    tip.style.left = '';
+    const r = tip.getBoundingClientRect();
+    let shift = Math.min(0, innerWidth - 8 - r.right);
+    if (r.left + shift < 8) shift = 8 - r.left;
+    tip.style.left = shift + 'px';
+  }
+
   document.addEventListener('click', (e) => {
     const a = e.target.closest('a[data-word]');
     if (a) { e.preventDefault(); pickWord(a.dataset.word); return; }
@@ -147,7 +158,7 @@
     if (f) { e.preventDefault(); favSet(f.dataset.fav); return; }
     const star = e.target.closest('.stat-star');
     document.querySelectorAll('.stat-star[data-open]').forEach((b) => { if (b !== star) b.removeAttribute('data-open'); });
-    if (star) star.toggleAttribute('data-open');
+    if (star) { star.toggleAttribute('data-open'); if (star.hasAttribute('data-open')) clampStatTip(star); }
   });
 
   // ---- favorites ---------------------------------------------------------
