@@ -181,9 +181,11 @@ body[data-screen=start] #s-start,body[data-screen=entry] #s-entry{display:block}
 .ext-dict-header[data-dictcode=dpd] .ext-dict-title::after{content:"Digital Pāḷi Dictionary";margin-left:10px;font-size:11.5px;font-weight:400;color:var(--dg-text-muted)}
 .ext-dict-header-right{display:flex;align-items:center;gap:1px;opacity:0;transition:opacity .15s var(--dg-ease)}
 .ext-dict-header:hover .ext-dict-header-right,.ext-dict-header:focus-within .ext-dict-header-right{opacity:1}
+[id^="ext-slot-"]:target{scroll-margin-top:64px}
+[id^="ext-slot-"]:target>.ext-dict-header .ext-dict-title{color:var(--dg-accent-ink)}
 @media(hover:none){.ext-dict-header-right,.sanskrit-dict-header-right{opacity:1}}
-.ext-dict-open-link,.ext-dict-move-up,.ext-dict-move-down,.ext-dict-drag-handle,.dict-move-up,.dict-move-down,.dict-drag-handle,#sanskrit-toggle-all{width:26px;height:26px;border:0;border-radius:7px;background:none;color:var(--dg-text-muted)!important;cursor:pointer;font-size:12px!important;font-weight:400!important;display:grid;place-items:center;padding:0;margin:0!important;opacity:1;line-height:1;text-decoration:none}
-.ext-dict-open-link:hover,.ext-dict-move-up:hover,.ext-dict-move-down:hover,.dict-move-up:hover,.dict-move-down:hover,#sanskrit-toggle-all:hover{background:var(--dg-surface-hover);color:var(--dg-text)!important}
+.ext-dict-open-link,.ext-dict-share,.ext-dict-move-up,.ext-dict-move-down,.ext-dict-drag-handle,.dict-move-up,.dict-move-down,.dict-drag-handle,#sanskrit-toggle-all{width:26px;height:26px;border:0;border-radius:7px;background:none;color:var(--dg-text-muted)!important;cursor:pointer;font-size:12px!important;font-weight:400!important;display:grid;place-items:center;padding:0;margin:0!important;opacity:1;line-height:1;text-decoration:none}
+.ext-dict-open-link:hover,.ext-dict-share:hover,.ext-dict-move-up:hover,.ext-dict-move-down:hover,.dict-move-up:hover,.dict-move-down:hover,#sanskrit-toggle-all:hover{background:var(--dg-surface-hover);color:var(--dg-text)!important}
 .ext-dict-open-link img{display:none}
 .ext-dict-open-link::before{content:"";width:12px;height:12px;background:currentColor;-webkit-mask:url(icons/ext.svg) center/contain no-repeat;mask:url(icons/ext.svg) center/contain no-repeat}
 .ext-dict-drag-handle,.dict-drag-handle{cursor:grab;touch-action:none}

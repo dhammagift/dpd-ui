@@ -556,6 +556,9 @@ async function handleClientSearch(rawQuery) {
             
             // Синхронный вызов поиска санскрита
             runSanskritSearch();
+
+            // If opened via a #ext-slot-<code> share link, expand/scroll to that dict.
+            if (location.hash) setTimeout(focusDictFromHash, 60);
         } else {
             if (tripitakaSlot) {
                 const c = tripitakaSlot.querySelector('.ext-dict-content');
@@ -2085,6 +2088,32 @@ function getUiText(key) {
     return UI_TEXTS[lang][key] || UI_TEXTS.en[key] || key;
 }
 
+// Copy a link that reopens this word with a specific dictionary expanded/focused.
+function shareDict(code) {
+    const q = (document.getElementById('search-box')?.value.trim()) ||
+              new URLSearchParams(location.search).get('q') || '';
+    const url = location.origin + location.pathname +
+                (q ? '?q=' + encodeURIComponent(q) : '') + '#ext-slot-' + code;
+    navigator.clipboard?.writeText(url).catch(() => {});
+    if (typeof showBubbleNotification === 'function')
+        showBubbleNotification(window.isRu ? 'Ссылка скопирована' : 'Link copied');
+}
+window.shareDict = shareDict;
+
+// On a #ext-slot-<code> hash, expand that dictionary (via its own toggle) and scroll to it.
+function focusDictFromHash() {
+    const id = location.hash.slice(1);
+    if (!id.startsWith('ext-slot-')) return;
+    const slot = document.getElementById(id);
+    if (!slot) return;
+    const header = slot.querySelector('.ext-dict-header');
+    const content = slot.querySelector('.ext-dict-content');
+    if (header && content && content.style.display === 'none') header.click();
+    slot.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+window.focusDictFromHash = focusDictFromHash;
+addEventListener('hashchange', focusDictFromHash);
+
 // Универсальный генератор шапки для внешних словарей
 function renderExtDictHeader(dictCode, title, targetUrl, extraRightHtml = '') {
     const linkHtml = `<a href="${targetUrl || '#'}" class="ext-dict-open-link" target="_blank"${targetUrl ? '' : ' style="visibility:hidden;"'} onclick="event.stopPropagation();" title="${getUiText('openInNewTab')}"><img src="static/open-link.svg" class="ext-dict-open-icon"></a>`;
@@ -2098,6 +2127,8 @@ function renderExtDictHeader(dictCode, title, targetUrl, extraRightHtml = '') {
         <button class="ext-dict-move-up" onclick="event.stopPropagation(); moveExtSlot(this, true);" title="Move up">↑</button>
         <button class="ext-dict-move-down" onclick="event.stopPropagation(); moveExtSlot(this, false);" title="Move down">↓</button>`;
 
+    const shareBtn = `<button class="ext-dict-share" onclick="event.stopPropagation(); shareDict('${dictCode}');" title="${window.isRu ? 'Ссылка на этот словарь' : 'Link to this dictionary'}"><i class="gi i-link"></i></button>`;
+
     return {
         headerHtml: `
             <div class="ext-dict-header" data-dictcode="${dictCode}">
@@ -2107,6 +2138,7 @@ function renderExtDictHeader(dictCode, title, targetUrl, extraRightHtml = '') {
                 </div>
                 <div class="ext-dict-header-right" onclick="event.stopPropagation();">
                     ${extraRightHtml}
+                    ${shareBtn}
                     ${linkHtml}
                     ${moveButtons}
                     <span class="ext-dict-drag-handle" title="Drag to reorder">☰</span>
