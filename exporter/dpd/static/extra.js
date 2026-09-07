@@ -2088,27 +2088,38 @@ function getUiText(key) {
     return UI_TEXTS[lang][key] || UI_TEXTS.en[key] || key;
 }
 
+// Human-friendly hash <-> internal dict code (others: hash === code)
+const DICT_HASH = { sanskrit: 'skr', wisdomlib: 'wisdom' };
+const hashFromCode = (c) => DICT_HASH[c] || c;
+const codeFromHash = (h) => {
+    h = h.replace(/^ext-slot-/, ''); // still accept old #ext-slot-<code> links
+    for (const c in DICT_HASH) if (DICT_HASH[c] === h) return c;
+    return h;
+};
+
 // Copy a link that reopens this word with a specific dictionary expanded/focused.
 function shareDict(code) {
     const q = (document.getElementById('search-box')?.value.trim()) ||
               new URLSearchParams(location.search).get('q') || '';
     const url = location.origin + location.pathname +
-                (q ? '?q=' + encodeURIComponent(q) : '') + '#ext-slot-' + code;
+                (q ? '?q=' + encodeURIComponent(q) : '') + '#' + hashFromCode(code);
     navigator.clipboard?.writeText(url).catch(() => {});
     if (typeof showBubbleNotification === 'function')
         showBubbleNotification(window.isRu ? 'Ссылка скопирована' : 'Link copied');
 }
 window.shareDict = shareDict;
 
-// On a #ext-slot-<code> hash, expand that dictionary (via its own toggle) and scroll to it.
+// On a #<dict> hash (e.g. #gandhari, #pts, #skr), expand that dictionary and scroll to it.
 function focusDictFromHash() {
-    const id = location.hash.slice(1);
-    if (!id.startsWith('ext-slot-')) return;
-    const slot = document.getElementById(id);
+    const h = location.hash.slice(1);
+    if (!h) return;
+    const slot = document.getElementById('ext-slot-' + codeFromHash(h));
     if (!slot) return;
     const header = slot.querySelector('.ext-dict-header');
     const content = slot.querySelector('.ext-dict-content');
     if (header && content && content.style.display === 'none') header.click();
+    document.querySelectorAll('.dict-focused').forEach((s) => s.classList.remove('dict-focused'));
+    slot.classList.add('dict-focused');
     slot.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 window.focusDictFromHash = focusDictFromHash;
