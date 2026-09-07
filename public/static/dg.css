@@ -66,8 +66,13 @@ button{font-family:inherit}
 [hidden]{display:none!important}
 
 /* ── top bar ───────────────────────────────────────────────── */
-.tbar{position:sticky;top:0;z-index:40;background:var(--dg-page);border-bottom:1px solid transparent;padding:11px 20px 10px;transition:border-color .18s var(--dg-ease),box-shadow .18s var(--dg-ease)}
+.tbar{position:sticky;top:0;z-index:40;background:var(--dg-page);border-bottom:1px solid transparent;padding:11px 20px 10px;transition:border-color .18s var(--dg-ease),box-shadow .18s var(--dg-ease),transform .22s var(--dg-ease),margin-bottom .22s var(--dg-ease)}
 body.scrolled .tbar{border-bottom-color:var(--dg-border);box-shadow:0 4px 14px rgba(27,29,25,.07)}
+/* hide the search bar on scroll-down to free up space, reappears on scroll-up or when a search input gets focus */
+/* overflow-anchor:none avoids a feedback loop: without it, Chrome's scroll anchoring nudges scrollY
+   to compensate for the animating margin-bottom above the fold, firing scroll events that re-trigger this same toggle */
+html{overflow-anchor:none}
+body.tbar-hide .tbar{transform:translateY(-100%);margin-bottom:calc(-1 * var(--tbar-h, 64px))}
 .tbar .in{position:relative;max-width:1140px;margin:0 auto;width:100%;display:flex;align-items:center;gap:10px}
 .wordmark{display:flex;align-items:center;gap:8px;cursor:pointer;flex:none;color:inherit;text-decoration:none}
 .wordmark:hover{text-decoration:none;color:inherit}

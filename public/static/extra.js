@@ -246,7 +246,18 @@ document.addEventListener('keydown', function(event) {
         
         // Предотвращаем действие по умолчанию только если нашли инпут
         event.preventDefault();
-        
+
+        // Snap the search bar visible *before* focusing: if we let it slide in
+        // while jQuery UI autocomplete opens on the native "focus" event, the
+        // dropdown reads the input's (still off-screen) position and misplaces itself.
+        const tbar = document.querySelector('.tbar');
+        if (tbar && document.body.classList.contains('tbar-hide')) {
+            tbar.style.transition = 'none';
+            document.body.classList.remove('tbar-hide');
+            tbar.offsetHeight; // force reflow before restoring the transition
+            tbar.style.transition = '';
+        }
+
         // Фокусируемся и перемещаем курсор в конец
         input.focus();
         input.setSelectionRange(input.value.length, input.value.length);

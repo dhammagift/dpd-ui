@@ -135,5 +135,28 @@
     const s = document.createElement('div'); s.style.cssText = 'position:absolute;top:0;height:1px;width:1px';
     B.prepend(s);
     new IntersectionObserver(([en]) => B.classList.toggle('scrolled', !en.isIntersecting)).observe(s);
+
+    // hide the search bar on scroll-down (more room), reveal on scroll-up or on focus (incl. the "/" shortcut)
+    const tbar = document.querySelector('.tbar');
+    if (tbar) {
+      const setH = () => document.documentElement.style.setProperty('--tbar-h', tbar.offsetHeight + 'px');
+      setH();
+      addEventListener('resize', setH);
+      const hideMinY = 320; // don't hide until scrolled this far down
+      let lastY = scrollY, ticking = false;
+      addEventListener('scroll', () => {
+        if (ticking) return;
+        ticking = true;
+        requestAnimationFrame(() => {
+          const y = scrollY, dy = y - lastY;
+          if (y < hideMinY) B.classList.remove('tbar-hide');
+          else if (dy > 8) B.classList.add('tbar-hide');
+          else if (dy < -8) B.classList.remove('tbar-hide');
+          lastY = y;
+          ticking = false;
+        });
+      }, { passive: true });
+      tbar.addEventListener('focusin', () => B.classList.remove('tbar-hide'));
+    }
   });
 })();
