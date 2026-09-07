@@ -24,7 +24,7 @@
   <link rel="stylesheet" href="static/dpd.css">
   <link rel="stylesheet" href="static/jquery-ui.min.css">
   <link rel="stylesheet" href="static/fa/fa.min.css">
-  <link rel="stylesheet" href="static/dg.css?v=ui1">
+  <link rel="stylesheet" href="static/dg.css?v=ui2">
   <script src="static/jquery-3.7.0.min.js"></script>
   <script src="static/jquery-ui.min.js"></script>
 </head>
@@ -63,7 +63,7 @@
     <button class="rb" id="histbtn" type="button" aria-pressed="true" title="История: показать / скрыть (Alt+H)" onclick="histToggle()"><i class="gi i-history"></i></button>
     <button class="rb" type="button" title="Настройки (Alt+S)" onclick="openPanel('set')"><i class="gi i-gear"></i></button>
     <button class="rb hide-m" type="button" title="Тема (Alt+T)" onclick="toggleThemeProgrammatically()"><i class="gi i-theme"></i></button>
-    <button class="rb hide-m" type="button" title="Справка" onclick="document.getElementById('help').showModal()"><i class="gi i-help"></i></button>
+    <button class="rb hide-m" type="button" title="Справка" onclick="window.open('https://dhamma.gift/ru/docs/dictionary','_blank')"><i class="gi i-help"></i></button>
   </div>
 </div></div>
 
@@ -79,7 +79,7 @@
     <!-- start screen -->
     <main class="screen" id="s-start">
       <div class="start">
-        <h1>Словари Pāḷi и Sanskrit<button class="helpq" type="button" title="Справка" onclick="document.getElementById('help').showModal()"><i class="gi i-help"></i></button></h1>
+        <h1>Словари Pāḷi и Sanskrit<button class="helpq" type="button" title="Справка" onclick="window.open('https://dhamma.gift/ru/docs/dictionary','_blank')"><i class="gi i-help"></i></button></h1>
         <p class="sub">Одно слово, несколько источников: DPD, санскритские словари, глоссарии и определения из Сутт и Винаи.</p>
         <div class="hows">
           <div class="how"><b><i class="fa-solid fa-keyboard"></i>Четыре способа ввода</b><p>Пали с автоподсказками, Velthuis (<code>kacchapaa</code>), английский, русский.</p></div>
@@ -147,7 +147,7 @@
 <!-- settings panel -->
 <aside class="panel" id="p-set">
   <div class="ph"><b>Настройки</b>
-    <a href="javascript:void(0)" class="phelp" onclick="document.getElementById('help').showModal()"><i class="gi i-help"></i>Справка</a>
+    <a href="javascript:void(0)" class="phelp" onclick="window.open('https://dhamma.gift/ru/docs/dictionary','_blank')"><i class="gi i-help"></i>Справка</a>
     <button class="rb" type="button" title="Закрыть" onclick="closePanels()"><i class="fa-solid fa-xmark"></i></button>
   </div>
   <div class="pb">
@@ -208,13 +208,13 @@
 
 <div id="bubbleNotification" class="bubble-notification"></div>
 
-<script src="static/home.js?v=ui1"></script>
+<script src="static/home.js?v=ui2"></script>
 <script src="static/dpd.js" defer></script>
 <script src="static/autopali.js" defer></script>
-<script src="static/extra.js?v=ui1"></script>
+<script src="static/extra.js?v=ui2"></script>
 <script src="static/sorter.js" defer></script>
 <script src="static/openDicts.js" defer></script>
-<script src="static/ui.js?v=ui1"></script>
+<script src="static/ui.js?v=ui2"></script>
 </body>
 
 </html>

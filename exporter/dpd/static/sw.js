@@ -1,50 +1,49 @@
-const CACHE_NAME = 'dpd-pwa-v1';
+// Bumped on the redesign. Old cache-first strategy served stale /static files
+// after a deploy (browser kept the previous version), so this is now
+// network-first: always fetch fresh when online, fall back to cache offline.
+const CACHE_NAME = 'dpd-pwa-v2';
 const urlsToCache = [
-  // Основные страницы
   '/',
   '/ru/',
-
-  // Критические CSS/JS
   '/static/dpd.js',
   '/static/autopali.js',
   '/static/home.js',
   '/static/extra.js',
   '/static/dpd.css',
-  '/static/home.css',
-  '/static/extrastyles.css',
- 
-  // Иконки и ассеты
-  '/static/dpd.ico',
-
-  // Данные словаря (если они статические)
   '/static/sutta_words.txt'
 ];
 
-// Установка и кеширование
 self.addEventListener('install', (event) => {
+  self.skipWaiting();
   event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then((cache) => cache.addAll(urlsToCache))
+    caches.open(CACHE_NAME).then((cache) =>
+      // don't fail the whole install if one asset is missing
+      Promise.allSettled(urlsToCache.map((u) => cache.add(u)))
+    )
   );
 });
 
-// Стратегия: "Сначала кеш, потом сеть"
+// Network-first: fresh content always wins; cache is only an offline fallback.
 self.addEventListener('fetch', (event) => {
+  if (event.request.method !== 'GET') return;
   event.respondWith(
-    caches.match(event.request)
-      .then((response) => response || fetch(event.request))
+    fetch(event.request)
+      .then((resp) => {
+        if (resp && resp.ok && resp.type === 'basic') {
+          const copy = resp.clone();
+          caches.open(CACHE_NAME).then((c) => c.put(event.request, copy)).catch(() => {});
+        }
+        return resp;
+      })
+      .catch(() => caches.match(event.request))
   );
 });
 
-// Очистка старых кешей
+// Drop every cache that is not the current one, then take control immediately.
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((keys) => 
-      Promise.all(
-        keys.map((key) => 
-          key !== CACHE_NAME ? caches.delete(key) : null
-        )
-      )
-    )
+    caches.keys()
+      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k))))
+      .then(() => self.clients.claim())
   );
 });
