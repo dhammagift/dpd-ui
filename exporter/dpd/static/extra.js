@@ -2089,7 +2089,7 @@ function getUiText(key) {
 }
 
 // Human-friendly hash <-> internal dict code (others: hash === code)
-const DICT_HASH = { sanskrit: 'skr', wisdomlib: 'wisdom' };
+const DICT_HASH = { sanskrit: 'skr', wisdomlib: 'wisdom', tripitaka: 'definitions' };
 const hashFromCode = (c) => DICT_HASH[c] || c;
 const codeFromHash = (h) => {
     h = h.replace(/^ext-slot-/, ''); // still accept old #ext-slot-<code> links
