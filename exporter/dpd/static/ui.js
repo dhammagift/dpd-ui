@@ -98,10 +98,12 @@
   function openPanel(p) {
     closePanels();
     B.classList.add('pnopen');
+    // history opens as a top dropdown (like the resources menu), no dark scrim
+    B.classList.toggle('hist-open', p === 'hist');
     $('p-' + p).dataset.open = 'true';
   }
   function closePanels() {
-    B.classList.remove('pnopen');
+    B.classList.remove('pnopen', 'hist-open');
     document.querySelectorAll('aside.panel').forEach((p) => (p.dataset.open = 'false'));
   }
   function togglePanel(p) { $('p-' + p).dataset.open === 'true' ? closePanels() : openPanel(p); }
@@ -113,7 +115,8 @@
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closePanels(); });
 
   // ---- data --------------------------------------------------------------
-  window.clearHistory = () => { localStorage.removeItem('history-list'); paintHist(); };
+  // clears both history and favorites (the settings row and any trash button)
+  window.clearHistory = () => { localStorage.removeItem('history-list'); localStorage.removeItem('fav-list'); paintHist(); };
   window.resetSettings = () => {
     ['theme', 'fontSize', 'theme-toggle', 'sans-serif-toggle', 'niggahita-toggle', 'grammar-toggle', 'example-toggle',
       'one-button-toggle', 'summary-toggle', 'sandhi-toggle', 'audio-toggle', 'tabsHidden', 'desktopHistoryHidden',
@@ -124,7 +127,7 @@
   // ---- init ---------------------------------------------------------------
   document.addEventListener('DOMContentLoaded', () => {
     $('histbtn')?.setAttribute('aria-pressed', String(B.dataset.hist === 'on'));
-    $('clear-history-button')?.addEventListener('click', paintHist); // extra.js clears storage first
+    $('clear-history-button')?.addEventListener('click', clearHistory); // clears history + favorites, repaints
     const q = new URLSearchParams(location.search).get('q');
     if (q) { const h = $('whead-word'); if (h) h.textContent = q; }
     paintHist();

@@ -384,7 +384,12 @@ body[data-hist=on] .rail{animation:rail-in .34s var(--dg-ease) both}
   #dpd-results table.inflection th,#dpd-results table.inflection td{padding:6px 7px;font-size:12.5px}
   .projrow .in{padding:0 14px}
   .pagefoot{padding:16px 15px 34px}
-  /* panels become bottom sheets */
+  /* settings stays a bottom sheet */
   .panel{top:auto;left:0;width:auto;max-width:none;border-left:0;border-top:1px solid var(--dg-border);border-radius:16px 16px 0 0;max-height:82vh;transform:translateY(102%);box-shadow:0 -10px 34px var(--dg-shadow)}
   .panel[data-open=true]{transform:none}
+  /* history opens as a top dropdown, like the resources menu (no dark scrim) */
+  body.pnopen.hist-open::after{display:none}
+  .panel.hist-p{top:56px;left:10px;right:10px;bottom:auto;width:auto;max-width:none;border:1px solid var(--dg-border);border-radius:14px;max-height:min(72vh,560px);transform:translateY(-8px);box-shadow:0 14px 40px var(--dg-shadow)}
+  .panel.hist-p .ph{padding:11px 12px 10px 16px}
+  .panel.hist-p .pb{padding:8px 12px 16px}
 }
