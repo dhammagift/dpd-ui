@@ -129,7 +129,16 @@
   window.favToggle = () => { const w = currentWord(); if (w) favSet(w); };
 
   // ---- word actions ------------------------------------------------------
-  window.speakWord = () => { const w = currentWord(); if (w && typeof playAudio === 'function') playAudio(w); };
+  // The big speaker button plays the audio of the FIRST DPD entry's own play button
+  // (its data-headword is the dictionary lemma, e.g. "satta" for a search of "satto" —
+  // audio only exists for lemmas, so reusing currentWord() directly 404s for inflected forms).
+  window.speakWord = () => {
+    const firstPlay = document.querySelector('#dpd-results .dpd-button.play');
+    const headword = firstPlay?.getAttribute('data-headword');
+    if (headword && typeof playAudio === 'function') { playAudio(headword, firstPlay.getAttribute('data-gender')); return; }
+    const w = currentWord();
+    if (w && typeof playAudio === 'function') playAudio(w);
+  };
   window.copyWord = () => { const w = currentWord(); if (w) navigator.clipboard.writeText(w).then(() => notify(T.copied)); };
   window.copyLink = () => navigator.clipboard.writeText(location.href).then(() => notify(T.linkCopied));
 
