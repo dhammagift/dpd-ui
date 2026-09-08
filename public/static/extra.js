@@ -246,24 +246,11 @@ function handleLanguageShortcut(event) {
     }
 }
 
-// Переключение языка
+// Переключение языка. window.isRu (not the path — /ru/ gets masked out of the address
+// bar after load, see the language IIFE near the top of this file) is the source of truth
+// for which language actually rendered.
 function toggleLanguage() {
-    const base = getAppBase();
-    const onRu = /\/ru(\/|$)/.test(window.location.pathname);
-    const newPath = onRu ? base : base.replace(/\/$/, '') + '/ru/';
-    localStorage.setItem("preferredLanguage", onRu ? DEFAULT_LANG : 'ru');
-    redirectWithLanguage(newPath);
-}
-
-// Безопасный редирект         newUrl.protocol = 'https:'; 
-
-function redirectWithLanguage(newPath) {
-    // Проверяем, не пытаемся ли перейти на тот же URL
-    if (window.location.pathname !== newPath) {
-        const newUrl = new URL(window.location.href);
-        newUrl.pathname = newPath;
-        window.location.href = newUrl.toString();
-    }
+    changeLanguage(window.isRu ? 'en' : 'ru');
 }
 
 
@@ -2409,11 +2396,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 searchBox.value = '';
             }
 
-            // Переход на главную с учетом текущего языка
+            // Переход на главную с учетом текущего языка (window.isRu, не путь — он
+            // маскируется от /ru/ после загрузки, см. language IIFE в начале файла)
             const base = typeof getAppBase === 'function' ? getAppBase() : '/';
-            const onRu = /\/ru(\/|$)/.test(window.location.pathname);
-            const targetUrl = onRu ? base.replace(/\/$/, '') + '/ru/' : base;
-            
+            const targetUrl = window.isRu ? base.replace(/\/$/, '') + '/ru/' : base;
+
             window.location.href = targetUrl;
         });
 
