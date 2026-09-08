@@ -4,32 +4,41 @@
   const B = document.body;
   const isRu = document.documentElement.lang === 'ru';
   const T = isRu
-    ? { fav: 'В избранное', unfav: 'Убрать из избранного', copied: 'Скопировано', linkCopied: 'Ссылка скопирована', noFav: 'пока пусто', noHist: 'пока пусто' }
-    : { fav: 'Add to favorites', unfav: 'Remove from favorites', copied: 'Copied', linkCopied: 'Link copied', noFav: 'nothing yet', noHist: 'nothing yet' };
+    ? { fav: 'В избранное', unfav: 'Убрать из избранного', copied: 'Скопировано', linkCopied: 'Ссылка скопирована', noFav: 'пока пусто', noHist: 'пока пусто', removeHist: 'Удалить из истории' }
+    : { fav: 'Add to favorites', unfav: 'Remove from favorites', copied: 'Copied', linkCopied: 'Link copied', noFav: 'nothing yet', noHist: 'nothing yet', removeHist: 'Remove from history' };
   const mobile = () => matchMedia('(max-width: 767.98px)').matches;
   const $ = (id) => document.getElementById(id);
   const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
 
   const getHist = () => JSON.parse(localStorage.getItem('history-list') || '[]');
+  const setHist = (l) => localStorage.setItem('history-list', JSON.stringify(l));
   const getFav = () => JSON.parse(localStorage.getItem('fav-list') || '[]');
   const setFav = (l) => localStorage.setItem('fav-list', JSON.stringify(l));
   const currentWord = () => ($('search-box')?.value || '').trim();
   const notify = (t) => typeof showBubbleNotification === 'function' && showBubbleNotification(t);
 
   // ---- rendering ---------------------------------------------------------
-  function row(w, withStar) {
+  function row(w, withStar, withDel) {
     const cur = w === currentWord() && B.dataset.screen === 'entry';
     const on = getFav().includes(w);
+    const del = withDel
+      ? `<button class="delmark" type="button" title="${T.removeHist}" data-delhist="${esc(w)}"><i class="fa-solid fa-xmark"></i></button>`
+      : '';
     const star = withStar
       ? `<button class="favmark" type="button" aria-pressed="${on}" title="${on ? T.unfav : T.fav}" data-fav="${esc(w)}"><i class="fa-${on ? 'solid' : 'regular'} fa-star"></i></button>`
       : '';
-    return `<li><a href="#" data-word="${esc(w)}"${cur ? ' aria-current="true"' : ''}>${esc(w)}</a>${star}</li>`;
+    return `<li><a href="#" data-word="${esc(w)}"${cur ? ' aria-current="true"' : ''}>${esc(w)}</a>${del}${star}</li>`;
+  }
+
+  function removeHist(w) {
+    setHist(getHist().filter((x) => x !== w));
+    paintHist();
   }
 
   function paintHist() {
     const hist = getHist(), fav = getFav();
     const favHtml = fav.map((w) => row(w, true)).join('');
-    const histHtml = hist.map((w) => row(w, true)).join('');
+    const histHtml = hist.map((w) => row(w, true, true)).join('');
     for (const id of ['rail-fav', 'fav-list']) { const el = $(id); if (el) { el.innerHTML = favHtml; el.dataset.empty = T.noFav; } }
     for (const id of ['rail-list', 'hist-list']) { const el = $(id); if (el) { el.innerHTML = histHtml; el.dataset.empty = T.noHist; } }
     const chips = $('chips');
@@ -156,6 +165,8 @@
     if (a) { e.preventDefault(); pickWord(a.dataset.word); return; }
     const f = e.target.closest('button[data-fav]');
     if (f) { e.preventDefault(); favSet(f.dataset.fav); return; }
+    const d = e.target.closest('button[data-delhist]');
+    if (d) { e.preventDefault(); removeHist(d.dataset.delhist); return; }
     const star = e.target.closest('.stat-star');
     document.querySelectorAll('.stat-star[data-open]').forEach((b) => { if (b !== star) b.removeAttribute('data-open'); });
     if (star) { star.toggleAttribute('data-open'); if (star.hasAttribute('data-open')) clampStatTip(star); }

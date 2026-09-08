@@ -131,6 +131,10 @@ body[data-hist=off] .rail{display:none}
 .favmark[aria-pressed=true]{opacity:1;color:var(--dg-accent-ink)}
 .favmark:hover{background:var(--dg-surface-hover);color:var(--dg-accent-ink)}
 @media(hover:none){.favmark{opacity:1}}
+.delmark{flex:none;width:22px;height:22px;border:0;border-radius:6px;background:none;color:var(--dg-text-muted);font-size:10px;cursor:pointer;display:grid;place-items:center;padding:0;opacity:0;transition:opacity .13s var(--dg-ease),color .13s var(--dg-ease)}
+.rail li:hover .delmark,.delmark:focus-visible,.hist-p .delmark{opacity:1}
+.delmark:hover{background:var(--dg-surface-hover);color:var(--dg-text)}
+@media(hover:none){.delmark{opacity:1}}
 
 /* ── screens ───────────────────────────────────────────────── */
 .screen{display:none}
