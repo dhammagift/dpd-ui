@@ -60,8 +60,10 @@ function getUrlParams() {
 // language: ?lang=ru|en wins outright; otherwise, if the URL itself doesn't already say
 // /ru/ or /th/, fall back to whatever was last picked (Settings, or an earlier ?lang=)
 // so a plain revisit opens in the same language as last time. /ru/ and /th/ paths keep
-// working as before (old links, bookmarks) — ?lang= is just the new preferred switch,
-// and changeLanguage() (below, hoisted) still does the actual redirect either way.
+// working as before (old links, bookmarks) — changeLanguage() (below, hoisted) still
+// navigates there to fetch the actually-translated file, there's no way around that with
+// two separate static templates — but once landed, the bar is masked back to the
+// language-neutral path below, so both languages end up showing the same URL shape.
 (function () {
   const params = new URLSearchParams(window.location.search);
   const explicitLang = params.get('lang');
@@ -71,13 +73,15 @@ function getUrlParams() {
   if (lang === 'ru' && !window.isRu) { changeLanguage('ru'); return; }
   if (lang === 'en' && window.isRu) { changeLanguage('en'); return; }
 
-  // Already the right language (path already says so, or nothing to override) — remember
-  // an explicit choice, and drop a now-redundant ?lang= so the URL doesn't carry it forever.
-  if (explicitLang === 'ru' || explicitLang === 'en') {
-    localStorage.setItem('siteLanguage', explicitLang);
-    params.delete('lang');
-    const qs = params.toString();
-    history.replaceState(null, '', window.location.pathname + (qs ? '?' + qs : '') + window.location.hash);
+  // Settled on the right language for this load — remember an explicit choice, then clean
+  // the address bar: drop a now-redundant ?lang=, and mask away /ru//th/ (language state
+  // lives in localStorage/?lang=, not the path, going forward).
+  if (explicitLang === 'ru' || explicitLang === 'en') localStorage.setItem('siteLanguage', explicitLang);
+  params.delete('lang');
+  const qs = params.toString();
+  const newUrl = getAppBase() + (qs ? '?' + qs : '') + window.location.hash;
+  if (newUrl !== window.location.pathname + window.location.search + window.location.hash) {
+    history.replaceState(null, '', newUrl);
   }
 })();
 
