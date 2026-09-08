@@ -1895,7 +1895,7 @@ function initExtSlotDragDrop(container) {
         removeSlotDraggable();
     });
 }
-function appendIframeDict(dictCode, title, targetUrl, allowPopups = false) {
+function appendIframeDict(dictCode, title, targetUrl, allowPopups = false, invertInDark = true) {
     const slot = document.getElementById(`ext-slot-${dictCode}`);
     if (!slot) return;
 
@@ -1906,13 +1906,17 @@ function appendIframeDict(dictCode, title, targetUrl, allowPopups = false) {
     if (!content) return;
 
     const iframeAttr = content.style.display === 'none' ? `data-src="${targetUrl}"` : `src="${targetUrl}"`;
-    
+
     let sandboxAttr = "allow-scripts allow-same-origin";
     if (allowPopups) {
         sandboxAttr += " allow-popups allow-popups-to-escape-sandbox";
     }
 
-    content.innerHTML = `<iframe ${iframeAttr} style="width: 100%; height: 450px; border: 2px solid #1a8bdb; border-radius: 8px; background-color: #fff;" sandbox="${sandboxAttr}" title="${title}"></iframe>`;
+    // The target site has no dark mode of its own: fake one by inverting the iframe
+    // (skip it for embeds like tripitaka that already render their own dark theme).
+    const invertClass = invertInDark ? ' class="dict-iframe-invert"' : '';
+
+    content.innerHTML = `<iframe ${iframeAttr}${invertClass} style="width: 100%; height: 450px; border: 2px solid #1a8bdb; border-radius: 8px; background-color: #fff;" sandbox="${sandboxAttr}" title="${title}"></iframe>`;
 }
 
 function appendTripitaka(query) {
@@ -1923,7 +1927,7 @@ function appendTripitaka(query) {
     const currentTheme = localStorage.getItem('theme') === 'dark' ? 'dark' : 'light';
     
     // Передаем динамическую тему в URL
-    appendIframeDict('tripitaka', 'Sutta-Vinaya Definitions and Similies', `https://tripitaka-mcp.com/read/embed/define?term=${encodeURIComponent(query)}&sources=an,dn,mn,sn,iti,ud,snp,dhp,vinaya&theme=${currentTheme}&link_base=${linkBase}`, true);
+    appendIframeDict('tripitaka', 'Sutta-Vinaya Definitions and Similies', `https://tripitaka-mcp.com/read/embed/define?term=${encodeURIComponent(query)}&sources=an,dn,mn,sn,iti,ud,snp,dhp,vinaya&theme=${currentTheme}&link_base=${linkBase}`, true, false);
 }
 
 async function appendBuddhadust(query) {
@@ -2019,7 +2023,7 @@ async function appendBuddhadust(query) {
 // Вспомогательная функция для отрисовки iframe и обновления ссылки в шапке
 window._renderBuddhadustIframe = function(contentNode, url, containerNode) {
     // Вставляем сам iframe
-    contentNode.innerHTML = `<iframe src="${url}" style="width:100%; height:500px; border:none; display:block;"></iframe>`;
+    contentNode.innerHTML = `<iframe src="${url}" class="dict-iframe-invert" style="width:100%; height:500px; border:none; display:block;"></iframe>`;
     
     // Динамически обновляем кнопку "открыть в новом окне" в шапке слота, 
     // чтобы она вела на ту же страницу, что сейчас открыта в iframe

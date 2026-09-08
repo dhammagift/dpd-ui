@@ -292,6 +292,11 @@ body[data-screen=start] #s-start,body[data-screen=entry] #s-entry{display:block}
 .spinner-container{display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:20px;position:relative;min-height:60px}
 .loading-spinner{opacity:.55;width:34px;height:34px;animation:spin 1s linear infinite}
 body.dark-mode .loading-spinner{filter:invert(1)}
+/* Fake dark mode for embedded dictionaries that don't have their own (Gandhari, PTS,
+   Wisdom Library, Buddhadust): invert(1)+hue-rotate(180deg) swaps light/dark while
+   keeping hues roughly intact. Cross-origin content, so any <img> inside still
+   inverts too — there's no DOM access from here to exempt them individually. */
+body.dark-mode .dict-iframe-invert{filter:invert(1) hue-rotate(180deg)}
 @keyframes spin{to{transform:rotate(360deg)}}
 
 /* ── project row + footer ──────────────────────────────────── */
