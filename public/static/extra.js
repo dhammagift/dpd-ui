@@ -57,10 +57,15 @@ function getUrlParams() {
   }
 })();
 
-// language from GET ?lang=ru|en — redirects to the ru/ (or root) install path,
-// same as picking it in Settings; changeLanguage() (below) is a hoisted function.
+// language: ?lang=ru|en wins outright; otherwise, if the URL itself doesn't already say
+// /ru/ or /th/, fall back to whatever was last picked (Settings, or an earlier ?lang=)
+// so a plain revisit opens in the same language as last time. Either way this redirects
+// to the ru/ (or root) install path, same as picking it in Settings; changeLanguage()
+// (below) is a hoisted function.
 (function () {
-  const lang = new URLSearchParams(window.location.search).get('lang');
+  const explicitLang = new URLSearchParams(window.location.search).get('lang');
+  const noPathLang = !/\/(ru|th)(\/|$)/.test(window.location.pathname);
+  const lang = explicitLang || (noPathLang ? localStorage.getItem('siteLanguage') : null);
   if (lang === 'ru' && !window.isRu) changeLanguage('ru');
   else if (lang === 'en' && window.isRu) changeLanguage('en');
 })();
@@ -2088,10 +2093,7 @@ function appendPts(query) {
 }
 
 function appendWisdomLib(query) {
-    // Wisdom Library entries are photo-heavy (galleries of real images); invert+hue-rotate
-    // can't be scoped to skip just the <img> tags in a cross-origin iframe (no DOM access),
-    // so unlike the mostly-textual Gandhari/PTS/Buddhadust, this one keeps its native light look.
-    appendIframeDict('wisdomlib', 'Wisdom Library', `https://www.wisdomlib.org/definition/${encodeURIComponent(query)}`, false, false);
+    appendIframeDict('wisdomlib', 'Wisdom Library', `https://www.wisdomlib.org/definition/${encodeURIComponent(query)}`);
 }
 
 // Обработчик сворачивания целых блоков внешних словарей с сохранением состояния
