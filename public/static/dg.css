@@ -266,7 +266,7 @@ body[data-screen=start] #s-start,body[data-screen=entry] #s-entry{display:block}
 #dpd-results table.inflection tr th:first-child{text-align:left;color:var(--dg-navy-ink);text-transform:none;letter-spacing:0;font-size:12.5px}
 #dpd-results table.inflection td{color:var(--dg-text-2)}
 #dpd-results table.inflection td b{color:var(--dg-text);font-weight:600}
-#dpd-results .inflection-word-match{outline:0;background:var(--dg-accent-bg);color:var(--dg-text);border-radius:5px;padding:0 6px}
+#dpd-results .inflection-word-match{outline:2px solid var(--dg-accent);outline-offset:-1px;background:var(--dg-accent-bg);color:var(--dg-on-accent-bg);font-weight:600;border-radius:5px;padding:0 6px}
 #dpd-results table.family th,#dpd-results table.root_info th,#dpd-results table.help th,#dpd-results table.root_family th{color:var(--dg-navy-ink);font-weight:600;font-size:13px;padding-right:12px}
 #dpd-results table.family td{padding:1px 10px 1px 0}
 #dpd-results table.grammar_dict,#dpd-results table.variants{font-size:13.5px}
