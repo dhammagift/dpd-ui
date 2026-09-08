@@ -59,15 +59,26 @@ function getUrlParams() {
 
 // language: ?lang=ru|en wins outright; otherwise, if the URL itself doesn't already say
 // /ru/ or /th/, fall back to whatever was last picked (Settings, or an earlier ?lang=)
-// so a plain revisit opens in the same language as last time. Either way this redirects
-// to the ru/ (or root) install path, same as picking it in Settings; changeLanguage()
-// (below) is a hoisted function.
+// so a plain revisit opens in the same language as last time. /ru/ and /th/ paths keep
+// working as before (old links, bookmarks) — ?lang= is just the new preferred switch,
+// and changeLanguage() (below, hoisted) still does the actual redirect either way.
 (function () {
-  const explicitLang = new URLSearchParams(window.location.search).get('lang');
+  const params = new URLSearchParams(window.location.search);
+  const explicitLang = params.get('lang');
   const noPathLang = !/\/(ru|th)(\/|$)/.test(window.location.pathname);
   const lang = explicitLang || (noPathLang ? localStorage.getItem('siteLanguage') : null);
-  if (lang === 'ru' && !window.isRu) changeLanguage('ru');
-  else if (lang === 'en' && window.isRu) changeLanguage('en');
+
+  if (lang === 'ru' && !window.isRu) { changeLanguage('ru'); return; }
+  if (lang === 'en' && window.isRu) { changeLanguage('en'); return; }
+
+  // Already the right language (path already says so, or nothing to override) — remember
+  // an explicit choice, and drop a now-redundant ?lang= so the URL doesn't carry it forever.
+  if (explicitLang === 'ru' || explicitLang === 'en') {
+    localStorage.setItem('siteLanguage', explicitLang);
+    params.delete('lang');
+    const qs = params.toString();
+    history.replaceState(null, '', window.location.pathname + (qs ? '?' + qs : '') + window.location.hash);
+  }
 })();
 
 // Проверяем, есть ли параметр source=pwa в URL
