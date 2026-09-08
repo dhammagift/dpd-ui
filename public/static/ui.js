@@ -18,11 +18,13 @@
   const notify = (t) => typeof showBubbleNotification === 'function' && showBubbleNotification(t);
 
   // ---- rendering ---------------------------------------------------------
-  function row(w, withStar, withDel) {
+  function row(w, withStar, delType) {
     const cur = w === currentWord() && B.dataset.screen === 'entry';
     const on = getFav().includes(w);
-    const del = withDel
+    const del = delType === 'hist'
       ? `<button class="delmark" type="button" title="${T.removeHist}" data-delhist="${esc(w)}"><i class="fa-solid fa-xmark"></i></button>`
+      : delType === 'fav'
+      ? `<button class="delmark" type="button" title="${T.unfav}" data-delfav="${esc(w)}"><i class="fa-solid fa-xmark"></i></button>`
       : '';
     const star = withStar
       ? `<button class="favmark" type="button" aria-pressed="${on}" title="${on ? T.unfav : T.fav}" data-fav="${esc(w)}"><i class="fa-${on ? 'solid' : 'regular'} fa-star"></i></button>`
@@ -35,10 +37,15 @@
     paintHist();
   }
 
+  function removeFav(w) {
+    setFav(getFav().filter((x) => x !== w));
+    paintHist();
+  }
+
   function paintHist() {
     const hist = getHist(), fav = getFav();
-    const favHtml = fav.map((w) => row(w, true)).join('');
-    const histHtml = hist.map((w) => row(w, true, true)).join('');
+    const favHtml = fav.map((w) => row(w, true, 'fav')).join('');
+    const histHtml = hist.map((w) => row(w, true, 'hist')).join('');
     for (const id of ['rail-fav', 'fav-list']) { const el = $(id); if (el) { el.innerHTML = favHtml; el.dataset.empty = T.noFav; } }
     for (const id of ['rail-list', 'hist-list']) { const el = $(id); if (el) { el.innerHTML = histHtml; el.dataset.empty = T.noHist; } }
     const chips = $('chips');
@@ -167,6 +174,8 @@
     if (f) { e.preventDefault(); favSet(f.dataset.fav); return; }
     const d = e.target.closest('button[data-delhist]');
     if (d) { e.preventDefault(); removeHist(d.dataset.delhist); return; }
+    const df = e.target.closest('button[data-delfav]');
+    if (df) { e.preventDefault(); removeFav(df.dataset.delfav); return; }
     const star = e.target.closest('.stat-star');
     document.querySelectorAll('.stat-star[data-open]').forEach((b) => { if (b !== star) b.removeAttribute('data-open'); });
     if (star) { star.toggleAttribute('data-open'); if (star.hasAttribute('data-open')) clampStatTip(star); }
