@@ -1309,10 +1309,13 @@ async function fetchSanskrit(query, isFallback = false, originalQuery = '') {
                 const msgError = isRu
                     ? 'Произошла ошибка при обращении к словарю.'
                     : 'An error occurred while accessing the dictionary.';
+                const retryLabel = isRu ? 'Обновить' : 'Retry';
                 container.innerHTML = `
-                <div style="color: #c08552; padding: 10px; background: rgba(192, 133, 82, 0.1); border-radius: 5px;">
-                    ⚠️ ${msgError} <span style="color: #999; font-size: 0.9em;">(HTTP ${response.status})</span>
+                <div style="color: #c08552; padding: 10px; background: rgba(192, 133, 82, 0.1); border-radius: 5px; display: flex; align-items: center; gap: 8px;">
+                    <span>⚠️ ${msgError} <span style="color: #999; font-size: 0.9em;">(HTTP ${response.status})</span></span>
+                    <button type="button" class="sanskrit-retry-btn" title="${retryLabel}" style="border: 0; background: none; color: inherit; cursor: pointer; padding: 2px; line-height: 1; flex: none;"><i class="gi i-reset"></i></button>
                 </div>`;
+                container.querySelector('.sanskrit-retry-btn').addEventListener('click', () => fetchSanskrit(query, isFallback, originalQuery));
                 return;
             }
 
