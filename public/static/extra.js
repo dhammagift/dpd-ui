@@ -57,6 +57,14 @@ function getUrlParams() {
   }
 })();
 
+// language from GET ?lang=ru|en — redirects to the ru/ (or root) install path,
+// same as picking it in Settings; changeLanguage() (below) is a hoisted function.
+(function () {
+  const lang = new URLSearchParams(window.location.search).get('lang');
+  if (lang === 'ru' && !window.isRu) changeLanguage('ru');
+  else if (lang === 'en' && window.isRu) changeLanguage('en');
+})();
+
 // Проверяем, есть ли параметр source=pwa в URL
 const urlParams = getUrlParams();
 const isPWA = urlParams.get('source') === 'pwa';
