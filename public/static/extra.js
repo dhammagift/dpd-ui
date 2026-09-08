@@ -1949,29 +1949,29 @@ async function appendBuddhadust(query) {
         let exactLink = null;
         let matches = [];
 
+        const norm = (s) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
+
         // Собираем ссылки из HTML
         doc.querySelectorAll("a").forEach(link => {
-            const rawText = link.textContent || "";
-            const text = rawText.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
             const href = link.getAttribute("href");
-
             if (!href) return;
 
             // Для Buddhadust извлекаем текст термина из родительского элемента (текст перед [)
-            let termText = rawText;
-            if (link.parentElement) {
-                const parentText = link.parentElement.textContent || "";
-                const bracketIndex = parentText.indexOf("[");
-                if (bracketIndex !== -1) {
-                    termText = parentText.substring(0, bracketIndex);
-                }
-            }
-            const term = termText.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
+            const parentText = link.parentElement ? (link.parentElement.textContent || "") : "";
+            const bracketIndex = parentText.indexOf("[");
+            const label = (bracketIndex !== -1 ? parentText.substring(0, bracketIndex) : parentText).trim();
 
-            if (term === normalizedQuery) {
+            // Записи вида "English gloss (PaliTerm1 PaliTerm2, PaliTerm3)": сравниваем запрос
+            // с каждым отдельным термином, а не со всей строкой — иначе длинный английский
+            // глосс перед скобкой не даёт найти короткий пали-термин внутри неё.
+            const parenMatch = label.match(/^(.*?)\(([^)]*)\)\s*$/);
+            const candidates = (parenMatch ? [parenMatch[1], ...parenMatch[2].split(/[,;]/)] : [label])
+                .map(norm).filter(Boolean);
+
+            if (candidates.includes(normalizedQuery)) {
                 exactLink = href;
-            } else if (term.includes(normalizedQuery) && term.length < 30) {
-                matches.push({ text: rawText, href: href });
+            } else if (candidates.some(c => c.includes(normalizedQuery))) {
+                matches.push({ text: label, href: href });
             }
         });
 
