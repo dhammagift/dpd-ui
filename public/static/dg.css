@@ -361,7 +361,7 @@ input.sw:focus-visible{outline:2px solid var(--dg-accent);outline-offset:2px}
 /* ── autocomplete (jquery-ui) ──────────────────────────────── */
 .ui-autocomplete.ui-menu{position:absolute;max-height:min(50vh,320px);overflow-y:auto;overflow-x:hidden;background:var(--dg-surface);border:1px solid var(--dg-border);border-radius:14px;box-shadow:0 14px 40px var(--dg-shadow);padding:6px;z-index:70;font-family:var(--dg-font);font-size:13.5px;scrollbar-width:thin}
 .ui-autocomplete .ui-menu-item{margin:0}
-.ui-autocomplete .ui-menu-item-wrapper{padding:6px 10px;border-radius:8px;color:var(--dg-text);border:0;margin:0}
+.ui-autocomplete .ui-menu-item-wrapper{padding:6px 10px;border-radius:8px;color:var(--dg-text);border:0;margin:0;overflow-wrap:anywhere}
 .ui-autocomplete .ui-menu-item-wrapper.ui-state-active{background:var(--dg-surface-hover);color:var(--dg-text);border:0;font-weight:400}
 .ui-helper-hidden-accessible{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
 
@@ -393,6 +393,7 @@ body[data-hist=on] .rail{animation:rail-in .34s var(--dg-ease) both}
   .shell{padding:4px 5px 4px 12px;gap:5px}
   .shell .rnd{width:31px;height:31px}
   .dict-dropdown-menu-down,.dict-dropdown-menu{left:10px!important;right:10px!important;width:auto}
+  .ui-autocomplete.ui-menu{left:10px!important;right:10px!important;width:auto!important}
   .page{padding:4px 15px 0;grid-template-columns:minmax(0,1fr)}
   .whead{padding-top:6px}
   .rail{display:none}
