@@ -8,6 +8,39 @@ function getAppBase() {
     return window.location.pathname.replace(/\/(ru|th)(\/|$)/, '/').replace(/\/\//g, '/') || '/';
 }
 
+// Clean-path search: dict.dhamma.gift/kacchapa or /ru/kacchapa (and the same one folder
+// deeper, e.g. dhamma.gift/dict/kacchapa) search for kacchapa exactly like ?q=kacchapa,
+// without rewriting the address bar. The install base (root vs. a subfolder) is read
+// from this very script's own resolved src rather than hardcoded, so it tracks wherever
+// the app is actually deployed. urlParams below folds this in, so every existing
+// urlParams.get('q') call site just works, whichever way the word arrived.
+const pathWord = (function () {
+    if (new URLSearchParams(window.location.search).get('q')) return null; // ?q= already wins
+
+    let installBase = '/';
+    for (const s of document.getElementsByTagName('script')) {
+        if (!s.src) continue;
+        const path = new URL(s.src).pathname;
+        const i = path.indexOf('/static/');
+        if (i !== -1) { installBase = path.slice(0, i + 1); break; }
+    }
+
+    let rest = window.location.pathname.startsWith(installBase)
+        ? window.location.pathname.slice(installBase.length)
+        : window.location.pathname.replace(/^\//, '');
+    rest = rest.replace(/^(ru|th)\/?/, '').replace(/^\/+|\/+$/g, '');
+
+    return (rest && !rest.includes('/')) ? decodeURIComponent(rest) : null;
+})();
+
+// Every "new URLSearchParams(window.location.search)" below goes through this instead,
+// so a clean-path word (pathWord, computed above) reads back as q= too.
+function getUrlParams() {
+    const params = new URLSearchParams(window.location.search);
+    if (pathWord && !params.get('q')) params.set('q', pathWord);
+    return params;
+}
+
 // theme from GET ?theme=dark|light
 (function () {
   const params = new URLSearchParams(window.location.search);
@@ -25,7 +58,7 @@ function getAppBase() {
 })();
 
 // Проверяем, есть ли параметр source=pwa в URL
-const urlParams = new URLSearchParams(window.location.search);
+const urlParams = getUrlParams();
 const isPWA = urlParams.get('source') === 'pwa';
 
 // Если это PWA и нужно принудительно задать язык
@@ -299,7 +332,7 @@ let startMessage;
 function initStartMessage(lang) {
     
     // === НОВОЕ: Обработка silent режима ===
-    const urlParams = new URLSearchParams(window.location.search);
+    const urlParams = getUrlParams();
     if (urlParams.has('silent')) {
         // Используем lang (аргумент) или language (глобальную переменную)
         // Оборачиваем в HTML, чтобы сохранились отступы и стили
@@ -770,7 +803,7 @@ setOneButtonToggleDefault();
     `;
 
 // Инициализация - устанавливаем начальное значение из URL
-  const urlParams = new URLSearchParams(window.location.search);
+  const urlParams = getUrlParams();
   searchBoxForFooter.value = urlParams.get('q') || '';
 
 
@@ -1017,7 +1050,7 @@ function updateDocumentTitle(query) {
 // Отдельный слушатель для инициализации заголовка страницы
 document.addEventListener('DOMContentLoaded', function() {
   // 1. Проверяем URL на наличие параметра q при загрузке
-  const urlParams = new URLSearchParams(window.location.search);
+  const urlParams = getUrlParams();
   const initialQuery = urlParams.get('q');
   
   if (initialQuery) {
@@ -1571,7 +1604,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    const urlParams = new URLSearchParams(window.location.search);
+    const urlParams = getUrlParams();
     const initialQuery = urlParams.get('q');
     if (initialQuery) {
         if (searchBox) searchBox.value = initialQuery;
@@ -2047,7 +2080,10 @@ function appendPts(query) {
 }
 
 function appendWisdomLib(query) {
-    appendIframeDict('wisdomlib', 'Wisdom Library', `https://www.wisdomlib.org/definition/${encodeURIComponent(query)}`);
+    // Wisdom Library entries are photo-heavy (galleries of real images); invert+hue-rotate
+    // can't be scoped to skip just the <img> tags in a cross-origin iframe (no DOM access),
+    // so unlike the mostly-textual Gandhari/PTS/Buddhadust, this one keeps its native light look.
+    appendIframeDict('wisdomlib', 'Wisdom Library', `https://www.wisdomlib.org/definition/${encodeURIComponent(query)}`, false, false);
 }
 
 // Обработчик сворачивания целых блоков внешних словарей с сохранением состояния
@@ -2221,10 +2257,15 @@ function addToHistory(word) {
     historyList.unshift(word);
     if (historyList.length > 50) historyList.pop();
     localStorage.setItem("history-list", JSON.stringify(historyList));
-    const newUrl = new URL(window.location);
-    newUrl.searchParams.set('q', word);
-    if (window.location.search !== newUrl.search) {
-        window.history.pushState({ q: word }, '', newUrl);
+
+    // A clean-path landing (e.g. /kacchapa) already names the word in the URL —
+    // leave it alone instead of bolting a redundant ?q= onto it.
+    if (word !== pathWord || window.location.search) {
+        const newUrl = new URL(window.location);
+        newUrl.searchParams.set('q', word);
+        if (window.location.search !== newUrl.search) {
+            window.history.pushState({ q: word }, '', newUrl);
+        }
     }
     toggleClearHistoryButton();
 }
