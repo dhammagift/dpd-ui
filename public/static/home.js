@@ -123,14 +123,15 @@ titleClear.addEventListener("dblclick", function() {
 
 //// font size ////
 
+const BASE_FONT_SIZE = 15; // matches body{font-size} in dg.css
+
 function loadFontSize() {
     fontSize = localStorage.getItem("fontSize");
     if (fontSize === null) {
         bodyStyle = window.getComputedStyle(document.body);
         fontSize = parseInt(bodyStyle.getPropertyValue('font-size'), 10);
-    } else {
-        setFontSize()
     }
+    setFontSize()
 }
 
 function saveFontSize() {
@@ -139,7 +140,7 @@ function saveFontSize() {
 
 function setFontSize() {
     document.body.style.fontSize = fontSize + "px"
-    fontSizeDisplay.innerHTML =`${fontSize}px`
+    fontSizeDisplay.innerHTML = `${Math.round(fontSize / BASE_FONT_SIZE * 100)}%`
 }
 
 fontSizeUp.addEventListener("click", increaseFontSize)

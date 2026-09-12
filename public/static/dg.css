@@ -354,6 +354,11 @@ input.sw:focus-visible{outline:2px solid var(--dg-accent);outline-offset:2px}
 .stepper button{width:27px;height:27px;border:1px solid var(--dg-border-strong);border-radius:50%;background:var(--dg-surface);color:var(--dg-text-2);font:inherit;font-size:13px;cursor:pointer;display:grid;place-items:center;padding:0}
 .stepper button:hover{border-color:var(--dg-accent);color:var(--dg-accent-ink)}
 .stepper span{min-width:40px;text-align:center;font-size:12.5px;color:var(--dg-text-muted);font-variant-numeric:tabular-nums}
+/* big variant: language/theme/font-size, a bit larger than the default seg/stepper (issue #1), same single-row layout as the rest */
+.seg.big{padding:3px}
+.seg.big>button,.seg.big>span{padding:7px 14px;font-size:13px}
+.stepper.big button{width:31px;height:31px;font-size:14px}
+.stepper.big span{min-width:46px;font-size:13px}
 .rb.act{width:auto;padding:0 10px;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;font-size:11.5px;color:var(--dg-text-muted);margin-left:auto}
 .rb.act i{font-size:12px}
 .hist-p ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:1px}
