@@ -5,8 +5,14 @@ RewriteCond %{REQUEST_FILENAME} -f [OR]
 RewriteCond %{REQUEST_FILENAME} -d
 RewriteRule ^ - [L]
 
+# The shell's asset paths are document-relative and it has no <base>, so a trailing slash
+# would resolve every script/stylesheet one level deeper (/kacchapa/static/... -> 404).
+# Canonicalise it away before serving the shell.
+RewriteRule ^(ru|th)/([^/]+)/$ $1/$2 [R=302,L]
+RewriteRule ^([^/]+)/$ $1 [R=302,L]
+
 # Clean-path search, e.g. /kacchapa or /ru/kacchapa: serve the SPA shell, query string
 # (and any ?q= it already had) is passed through automatically. extra.js turns the path
 # segment into ?q= on load.
-RewriteRule ^ru/[^/]+/?$ ru/index.html [L]
-RewriteRule ^[^/]+/?$ index.html [L]
+RewriteRule ^ru/[^/]+$ ru/index.html [L]
+RewriteRule ^[^/]+$ index.html [L]

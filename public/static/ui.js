@@ -54,6 +54,8 @@
       $('recents').hidden = hist.length === 0;
     }
     $('favbtn')?.setAttribute('aria-pressed', String(fav.includes(currentWord())));
+    // the trash button is shown/hidden by history+favorites count (extra.js)
+    if (typeof toggleClearHistoryButton === 'function') toggleClearHistoryButton();
   }
   window.paintHist = paintHist;
 
@@ -201,7 +203,13 @@
     if (w && typeof playAudio === 'function') playAudio(w);
   };
   window.copyWord = () => { const w = currentWord(); if (w) navigator.clipboard.writeText(w).then(() => notify(T.copied)); };
-  window.copyLink = () => navigator.clipboard.writeText(location.href).then(() => notify(T.linkCopied));
+  // pageShareUrl (extra.js) rebuilds the language into the path: /ru/ is masked out of the
+  // address bar after load, so location.href alone would share a Russian page as English.
+  window.copyLink = () => {
+    const w = currentWord() || (typeof getUrlParams === 'function' ? getUrlParams().get('q') : '') || '';
+    const url = typeof pageShareUrl === 'function' ? pageShareUrl(w, location.hash) : location.href;
+    navigator.clipboard.writeText(url).then(() => notify(T.linkCopied));
+  };
 
   // ---- history rail / panels --------------------------------------------
   window.histToggle = function () {
@@ -252,7 +260,11 @@
   document.addEventListener('DOMContentLoaded', () => {
     $('histbtn')?.setAttribute('aria-pressed', String(B.dataset.hist === 'on'));
     $('clear-history-button')?.addEventListener('click', clearHistory); // clears history + favorites, repaints
-    const q = new URLSearchParams(location.search).get('q');
+    // getUrlParams (extra.js) folds a clean-path word (/kacchapa) in as q=, so a shared
+    // path link fills the headword instead of flashing the empty start screen.
+    const q = (typeof getUrlParams === 'function'
+      ? getUrlParams()
+      : new URLSearchParams(location.search)).get('q');
     if (q) { const h = $('whead-word'); if (h) h.textContent = q; updateDgStats(q); }
     paintHist();
     // shadow under the sticky bar once the page scrolls (no scroll listener)

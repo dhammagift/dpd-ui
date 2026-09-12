@@ -35,7 +35,16 @@
   try {
     if (localStorage.getItem('theme') === 'dark') document.body.classList.add('dark-mode');
     if (localStorage.getItem('desktopHistoryHidden') === 'true') document.body.dataset.hist = 'off';
-    if (/[?&]q=/.test(location.search)) document.body.dataset.screen = 'entry';
+    // A clean-path search (/kacchapa, /ru/kacchapa) is a word too — without it the entry
+    // screen flashes the empty start state before extra.js resolves the path. The install
+    // base comes from an already-resolved script src, same as in extra.js.
+    var sc = document.querySelector('script[src*="static/"]');
+    var ib = sc ? new URL(sc.src).pathname.replace(/static\/.*$/, '').replace(/\/(ru|th)\/$/, '/') : '/';
+    var rest = location.pathname.indexOf(ib) === 0
+      ? location.pathname.slice(ib.length)
+      : location.pathname.replace(/^\//, '');
+    rest = rest.replace(/^(ru|th)(\/|$)/, '').replace(/^\/+|\/+$/g, '');
+    if (/[?&]q=/.test(location.search) || (rest && rest.indexOf('/') === -1)) document.body.dataset.screen = 'entry';
   } catch (e) {}
 </script>
 

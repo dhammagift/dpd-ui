@@ -23,8 +23,9 @@ document.addEventListener('click', function(event) {
       const suttaNum = suttaMatch[2];
       const suttaCode = suttaType + suttaNum;
       
-      // Проверяем текущий URL страницы на наличие /ru/
-      if (window.location.href.includes('/ru/')) {
+      // window.isRu (extra.js) — /ru/ маскируется из адресной строки после загрузки,
+      // поэтому по самому URL язык уже не определить.
+      if (window.isRu ?? window.location.href.includes('/ru/')) {
         newUrl = `https://dhamma.gift/r/?q=${suttaCode}`;
       } else {
         newUrl = `https://dhamma.gift/read/?q=${suttaCode}`;
@@ -203,7 +204,7 @@ function rewriteOldLinksInContainer(container) {
       const suttaNum = suttaMatch[2];
       const suttaCode = suttaType + suttaNum;
 
-      if (window.location.href.includes('/ru/')) {
+      if (window.isRu ?? window.location.href.includes('/ru/')) {
         url = `https://dhamma.gift/r/?q=${suttaCode}`;
       } else {
         url = `https://dhamma.gift/read/?q=${suttaCode}`;

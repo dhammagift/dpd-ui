@@ -2,36 +2,69 @@
 //
 //
 window.isRu = /\/ru(\/|$)/.test(window.location.pathname);
+// The language the URL arrived with ('ru' | 'th' | 'en'), captured before the language IIFE
+// below masks that segment out of the address bar. Anything that needs "which language is
+// this page?" must use this (or window.isRu), never location.pathname.
+window.pathLang = (window.location.pathname.match(/\/(ru|th)(\/|$)/) || [])[1] || 'en';
 
-// Returns the app's install base path (e.g. '/' or '/dict/'), stripping any /ru or /th segment.
-function getAppBase() {
+// The CURRENT path with any /ru or /th segment removed, i.e. the language-neutral shape the
+// address bar is masked to. This is not the install base: on a clean-path search it still
+// carries the word (/ru/kacchapa -> /kacchapa). Use INSTALL_BASE/langPath() to build URLs.
+function getLangNeutralPath() {
     return window.location.pathname.replace(/\/(ru|th)(\/|$)/, '/').replace(/\/\//g, '/') || '/';
 }
 
-// Clean-path search: dict.dhamma.gift/kacchapa or /ru/kacchapa (and the same one folder
-// deeper, e.g. dhamma.gift/dict/kacchapa) search for kacchapa exactly like ?q=kacchapa,
-// without rewriting the address bar. The install base (root vs. a subfolder) is read
-// from this very script's own resolved src rather than hardcoded, so it tracks wherever
-// the app is actually deployed. urlParams below folds this in, so every existing
-// urlParams.get('q') call site just works, whichever way the word arrived.
-const pathWord = (function () {
-    if (new URLSearchParams(window.location.search).get('q')) return null; // ?q= already wins
-
-    let installBase = '/';
+// Where the app is installed: '/' at a domain root, '/dict/' one folder deeper. Read from
+// this very script's own resolved src rather than hardcoded, so it tracks wherever the app
+// is actually deployed.
+const INSTALL_BASE = (function () {
     for (const s of document.getElementsByTagName('script')) {
         if (!s.src) continue;
         const path = new URL(s.src).pathname;
         const i = path.indexOf('/static/');
-        if (i !== -1) { installBase = path.slice(0, i + 1); break; }
+        // The translated shells live one folder down (/ru/index.html, with /ru/static ->
+        // ../static), so on those pages the script resolves to /ru/static/... — drop the
+        // language segment or every URL we build would get a second one (/ru/ru/kacchapa).
+        if (i !== -1) return path.slice(0, i + 1).replace(/\/(ru|th)\/$/, '/');
     }
+    return '/';
+})();
 
-    let rest = window.location.pathname.startsWith(installBase)
-        ? window.location.pathname.slice(installBase.length)
+// Clean-path search: dict.dhamma.gift/kacchapa or /ru/kacchapa (and the same one folder
+// deeper, e.g. dhamma.gift/dict/kacchapa) search for kacchapa exactly like ?q=kacchapa,
+// without rewriting the address bar. urlParams below folds this in, so every existing
+// urlParams.get('q') call site just works, whichever way the word arrived.
+const pathWord = (function () {
+    if (new URLSearchParams(window.location.search).get('q')) return null; // ?q= already wins
+
+    let rest = window.location.pathname.startsWith(INSTALL_BASE)
+        ? window.location.pathname.slice(INSTALL_BASE.length)
         : window.location.pathname.replace(/^\//, '');
-    rest = rest.replace(/^(ru|th)\/?/, '').replace(/^\/+|\/+$/g, '');
+    // The separator is required: with an optional slash this ate the first two letters of
+    // every word starting with "ru"/"th" (/rukkha searched "kkha", /thera searched "era").
+    rest = rest.replace(/^(ru|th)(\/|$)/, '').replace(/^\/+|\/+$/g, '');
 
     return (rest && !rest.includes('/')) ? decodeURIComponent(rest) : null;
 })();
+
+// Path of this app in `lang`, carrying `word` as a clean path segment when given:
+// langPath('ru', 'kacchapa') -> '/ru/kacchapa', langPath('en') -> '/'.
+function langPath(lang, word) {
+    return INSTALL_BASE + (lang && lang !== 'en' ? lang + '/' : '') +
+           (word ? encodeURIComponent(word) : '');
+}
+
+// A shareable absolute URL for this page in the language it is actually showing. Built from
+// window.isRu, not from location.pathname — /ru/ is masked out of the bar after load, so a
+// link copied from the path alone would always open in English. Words that aren't a single
+// plain token keep the ?q= form, which needs no rewrite rule to resolve.
+function pageShareUrl(word, hash) {
+    const lang = window.isRu ? 'ru' : 'en';
+    const clean = word && /^[^\s/?#%&+]+$/.test(word);
+    return location.origin + langPath(lang, clean ? word : '') +
+           (word && !clean ? '?q=' + encodeURIComponent(word) : '') + (hash || '');
+}
+window.pageShareUrl = pageShareUrl;
 
 // Every "new URLSearchParams(window.location.search)" below goes through this instead,
 // so a clean-path word (pathWord, computed above) reads back as q= too.
@@ -67,19 +100,22 @@ function getUrlParams() {
 (function () {
   const params = new URLSearchParams(window.location.search);
   const explicitLang = params.get('lang');
-  const noPathLang = !/\/(ru|th)(\/|$)/.test(window.location.pathname);
-  const lang = explicitLang || (noPathLang ? localStorage.getItem('siteLanguage') : null);
+  const pathLang = window.pathLang === 'en' ? null : window.pathLang;
+  const lang = explicitLang || (pathLang ? null : localStorage.getItem('siteLanguage'));
 
   if (lang === 'ru' && !window.isRu) { changeLanguage('ru'); return; }
   if (lang === 'en' && window.isRu) { changeLanguage('en'); return; }
 
-  // Settled on the right language for this load — remember an explicit choice, then clean
-  // the address bar: drop a now-redundant ?lang=, and mask away /ru//th/ (language state
-  // lives in localStorage/?lang=, not the path, going forward).
+  // Settled on the right language for this load — remember it, then clean the address bar:
+  // drop a now-redundant ?lang=, and mask away /ru//th/ (language state lives in
+  // localStorage/?lang=, not the path, going forward). Persisting the language the URL
+  // arrived with matters precisely because of that masking: without it a reload would fall
+  // back to English and copied links would carry the wrong language.
   if (explicitLang === 'ru' || explicitLang === 'en') localStorage.setItem('siteLanguage', explicitLang);
+  else if (pathLang) localStorage.setItem('siteLanguage', pathLang);
   params.delete('lang');
   const qs = params.toString();
-  const newUrl = getAppBase() + (qs ? '?' + qs : '') + window.location.hash;
+  const newUrl = getLangNeutralPath() + (qs ? '?' + qs : '') + window.location.hash;
   if (newUrl !== window.location.pathname + window.location.search + window.location.hash) {
     history.replaceState(null, '', newUrl);
   }
@@ -94,19 +130,20 @@ if (isPWA) {
     // Удаляем параметр source=pwa (чтобы он не дублировался после редиректа)
     urlParams.delete('source');
 
-    // Сохраняем оставшиеся параметры в строку (если они есть)
-    const remainingQuery = urlParams.toString();
+    // Сохраняем оставшиеся параметры в строку (если они есть). Берём их из самого URL, а не
+    // из urlParams: там q может быть подставлен из clean-path, а он уедет в путь ниже.
+    const redirectParams = new URLSearchParams(window.location.search);
+    redirectParams.delete('source');
+    const remainingQuery = redirectParams.toString();
     const queryString = remainingQuery ? `?${remainingQuery}` : '';
 
     // Проверяем язык в localStorage или определяем его
     let siteLanguage = localStorage.getItem('siteLanguage');
 
     if (!siteLanguage) {
-        const currentPath = window.location.pathname;
-        
-        if (currentPath.includes('/ru/')) {
+        if (window.pathLang === 'ru') {
             siteLanguage = 'ru';
-        } else if (currentPath.includes('/th/')) {
+        } else if (window.pathLang === 'th') {
             siteLanguage = 'th';
         } else {
             const browserLang = navigator.language || navigator.userLanguage;
@@ -116,19 +153,15 @@ if (isPWA) {
         localStorage.setItem('siteLanguage', siteLanguage);
     }
 
-    // Получаем текущий путь и хэш
-    const currentPath = window.location.pathname;
     const currentHash = window.location.hash;
 
-    // Делаем редирект с сохранением всех параметров (кроме source=pwa) и хэша
-    const base = getAppBase();
-    const basePath = base.replace(/\/$/, '');  // strip trailing slash for concatenation
-    if (siteLanguage === 'ru' && !currentPath.match(/\/ru(\/|$)/)) {
-        window.location.href = `${basePath}/ru/${queryString}${currentHash}`;
-    } else if (siteLanguage === 'th' && !currentPath.match(/\/th(\/|$)/)) {
-        window.location.href = `${basePath}/th/${queryString}${currentHash}`;
-    } else if (siteLanguage === 'en' && currentPath.match(/\/(ru|th)(\/|$)/)) {
-        window.location.href = `${base}${queryString}${currentHash}`;
+    // Делаем редирект с сохранением всех параметров (кроме source=pwa) и хэша.
+    // Язык этой загрузки — window.pathLang, а не путь: к этому моменту /ru/ из адресной
+    // строки уже замаскирован, и сравнение с путём гоняло бы русский PWA по лишнему
+    // редиректу. langPath() сохраняет слово из clean-path (/kacchapa -> /ru/kacchapa);
+    // склейка с текущим путём давала /kacchapa/ru/ и 404.
+    if (siteLanguage !== window.pathLang) {
+        window.location.href = `${langPath(siteLanguage, pathWord)}${queryString}${currentHash}`;
     }
 }
 // ======== Конфигурация ========
@@ -173,16 +206,13 @@ document.addEventListener('keydown', function(event) {
   if (isCtrl3 || isAlt3) {
     event.preventDefault();
 
-    const currentUrl = window.location.href;
     const currentParams = window.location.search; // включает ? и все параметры
 
     let targetUrl;
 
-    if (
-      currentUrl.includes('/ru') ||
-      currentUrl.includes('/r') ||
-      currentUrl.includes('/ml')
-    ) {
+    // window.isRu, а не подстрока пути: '/r' ловило любое слово на "r" (/rupa), а после
+    // маскировки /ru/ из адресной строки русская страница перестала определяться вовсе.
+    if (window.isRu) {
       targetUrl = 'https://dhamma.gift/ru/';
     } else {
       targetUrl = 'https://dhamma.gift/';
@@ -205,14 +235,9 @@ document.addEventListener('keydown', function(event) {
   if (isCtrl2 || isAlt2) {
     event.preventDefault();
 
-    const currentUrl = window.location.href;
     let targetUrl;
 
-    if (
-      currentUrl.includes('/ru') ||
-      currentUrl.includes('/r') ||
-      currentUrl.includes('/ml')
-    ) {
+    if (window.isRu) {
       targetUrl = 'https://dhamma.gift/ru/read.php';
     } else {
       targetUrl = 'https://dhamma.gift/read.php';
@@ -473,10 +498,12 @@ function changeLanguage(lang) {
       }
   }
 
+  // Keep the word we're on: /kacchapa <-> /ru/kacchapa. Built from the install base, never
+  // from the current path — on a clean-path search that path IS the word, so appending /ru/
+  // to it gave /kacchapa/ru/ and a 404. ?q= words ride along in url.search untouched.
   const url = new URL(window.location.href);
-  const base = getAppBase();
-  url.pathname = lang === 'ru' ? base.replace(/\/$/, '') + '/ru/' : base;
   const siteLanguage = lang === 'ru' ? 'ru' : 'en';
+  url.pathname = langPath(siteLanguage, pathWord);
 
   localStorage.setItem('siteLanguage', siteLanguage);
 
@@ -676,7 +703,7 @@ document.addEventListener('click', (e) => {
   if (dg) {
     updateLink(
       dg,
-      window.location.pathname.startsWith('/ru')
+      window.isRu
         ? 'https://f.dhamma.gift/ru/?p=-kn'
         : 'https://dhamma.gift?p=-kn'
     );
@@ -2008,10 +2035,14 @@ async function appendBuddhadust(query) {
             const href = link.getAttribute("href");
             if (!href) return;
 
-            // Для Buddhadust извлекаем текст термина из родительского элемента (текст перед [)
+            // Для Buddhadust извлекаем текст термина из родительского элемента (текст перед [).
+            // Без "[" родитель — это вся секция целиком (абзацы "See also: ..." и прочее),
+            // поэтому там берём текст самой ссылки, как было до разбора скобок.
             const parentText = link.parentElement ? (link.parentElement.textContent || "") : "";
             const bracketIndex = parentText.indexOf("[");
-            const label = (bracketIndex !== -1 ? parentText.substring(0, bracketIndex) : parentText).trim();
+            const label = (bracketIndex !== -1
+                ? parentText.substring(0, bracketIndex)
+                : (link.textContent || "")).trim();
 
             // Записи вида "English gloss (PaliTerm1 PaliTerm2, PaliTerm3)": сравниваем запрос
             // с каждым отдельным термином, а не со всей строкой — иначе длинный английский
@@ -2022,8 +2053,9 @@ async function appendBuddhadust(query) {
 
             if (candidates.includes(normalizedQuery)) {
                 exactLink = href;
-            } else if (candidates.some(c => c.includes(normalizedQuery))) {
-                matches.push({ text: label, href: href });
+            } else if (candidates.some(c => c.includes(normalizedQuery) && c.length < 30)) {
+                // Длина — как и раньше: без неё в варианты попадают целые абзацы.
+                if (!matches.some(m => m.href === href)) matches.push({ text: label, href: href });
             }
         });
 
@@ -2166,9 +2198,8 @@ const codeFromHash = (h) => {
 // Copy a link that reopens this word with a specific dictionary expanded/focused.
 function shareDict(code) {
     const q = (document.getElementById('search-box')?.value.trim()) ||
-              new URLSearchParams(location.search).get('q') || '';
-    const url = location.origin + location.pathname +
-                (q ? '?q=' + encodeURIComponent(q) : '') + '#' + hashFromCode(code);
+              getUrlParams().get('q') || '';
+    const url = pageShareUrl(q, '#' + hashFromCode(code));
     navigator.clipboard?.writeText(url).catch(() => {});
     if (typeof showBubbleNotification === 'function')
         showBubbleNotification(window.isRu ? 'Ссылка скопирована' : 'Link copied');
@@ -2300,8 +2331,13 @@ function populateHistoryBody() {
 function toggleClearHistoryButton() {
     const btn = document.getElementById("clear-history-button");
     if (!btn) return;
-    const historyList = JSON.parse(localStorage.getItem("history-list")) || [];
-    btn.style.display = historyList.length === 0 ? "none" : "inline-block";
+    // Кнопка чистит и историю, и избранное (ui.js clearHistory), поэтому скрываем её
+    // только когда пусты оба списка — иначе избранное нечем очистить.
+    const len = (key) => {
+        try { return (JSON.parse(localStorage.getItem(key)) || []).length; } catch (e) { return 0; }
+    };
+    const total = len("history-list") + len("fav-list");
+    btn.style.display = total === 0 ? "none" : "inline-block";
 }
 
 // ======== THEME (moved from home.js) ========
@@ -2398,8 +2434,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
             // Переход на главную с учетом текущего языка (window.isRu, не путь — он
             // маскируется от /ru/ после загрузки, см. language IIFE в начале файла)
-            const base = typeof getAppBase === 'function' ? getAppBase() : '/';
-            const targetUrl = window.isRu ? base.replace(/\/$/, '') + '/ru/' : base;
+            const targetUrl = typeof langPath === 'function'
+                ? langPath(window.isRu ? 'ru' : 'en')
+                : (window.isRu ? '/ru/' : '/');
 
             window.location.href = targetUrl;
         });
